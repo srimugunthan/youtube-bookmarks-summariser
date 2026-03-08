@@ -1,6 +1,6 @@
 # YouTubeSynth — Implementation Plan
 
-> **Status:** Design complete. No code exists yet. Follow phases in order — each phase is independently testable before the next begins.
+> **Status:** All 11 phases implemented and tested. 143/143 backend tests passing. Frontend builds cleanly.
 
 ---
 
@@ -17,6 +17,7 @@ Phase 1 (scaffolding)
   │           │           └── Phase 8 (CLI + pipeline.py)
   │           │                 └── Phase 9 (FastAPI + SSE)
   │           │                       └── Phase 10 (integration tests)
+  │           │                             └── Phase 11 (React frontend)
   └── (config.py imported by all)
 ```
 
@@ -58,14 +59,16 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.109.0", "uvicorn>=0.27.0", "sse-starlette>=1.6.0",
     "pydantic>=2.0.0", "pydantic-settings>=2.0.0",
-    "google-generativeai>=0.3.0",
+    "google-genai>=1.0.0",           # NOTE: NOT google-generativeai (deprecated)
     "youtube-transcript-api>=0.6.0", "yt-dlp>=2024.0.0",
     "aiosqlite>=0.19.0", "aiohttp>=3.9.0",
-    "beautifulsoup4>=4.12.0", "python-dotenv>=1.0.0", "tiktoken>=0.5.0",
+    "beautifulsoup4>=4.12.0", "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.9",       # required for FastAPI Form/File endpoints
+    "tiktoken>=0.5.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-asyncio>=0.23", "httpx>=0.27", "pytest-mock>=3.12"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.23", "httpx>=0.27", "pytest-mock>=3.12", "pytest-cov>=4.0"]
 
 [project.scripts]
 youtubesynth = "youtubesynth.cli:main"
@@ -172,6 +175,41 @@ async def get_token_usage(job_id) -> list[dict]
 
 All timestamps use `datetime.utcnow().isoformat() + "Z"`. DB directory auto-created on connect.
 
+### Why each table exists and when it is written
+
+**`jobs` — job lifecycle**
+- Written at pipeline start (`create_job`), at each status transition (`pending → running → done / failed`), and after each video completes (`increment_done_videos`).
+- Powers `GET /api/jobs/{job_id}` progress polling and crash-recovery (pipeline checks `status == running` on restart).
+
+**`video_progress` — per-video status**
+- Written when Agent 1 starts a video (`summarizing`) and again when it finishes (`done / failed / unavailable`).
+- Resume logic: before processing a video the pipeline checks `status == done` AND summary file exists — if both true, that video is skipped entirely (no re-fetch, no re-call to Gemini).
+
+**`token_usage` — cost ledger**
+- Written after every Gemini call (each chunk summary, each video summary, the synthesis call). `video_id` is `NULL` for the Agent 2 synthesis row.
+- Aggregated at job completion into `token_report.json` and displayed in CLI output and the React UI stats bar.
+
+### Data flow through the DB
+
+```
+pipeline start
+    │
+    ├─ create_job()                           ← jobs
+    │
+    ├─ for each video:
+    │   ├─ upsert_video_progress(pending)     ← video_progress
+    │   ├─ [fetch transcript]
+    │   ├─ upsert_video_progress(summarizing) ← video_progress
+    │   ├─ [call Gemini Flash]
+    │   ├─ insert_token_usage()               ← token_usage
+    │   ├─ update_video_status(done/failed)   ← video_progress
+    │   └─ increment_done_videos()            ← jobs
+    │
+    ├─ [call Gemini Pro for synthesis]
+    ├─ insert_token_usage(video_id=NULL)      ← token_usage
+    └─ update_job_status(done)               ← jobs
+```
+
 ### How to test Phase 3
 
 ```bash
@@ -227,16 +265,16 @@ pytest tests/unit/test_youtube_service.py -v
 
 ## Phase 5 — Gemini Client and Token Tracker
 
-**Goal:** Async Gemini wrapper with exponential backoff retry; cost computation and DB-backed token ledger.
+**Goal:** Async Gemini wrapper with exponential backoff retry; cost computation, DB-backed token ledger, and **pre-run cost estimation** before any Gemini calls are made.
 
 ### Files to create
 
 | File | Purpose |
 |---|---|
 | `youtubesynth/services/gemini_client.py` | `GeminiResponse` dataclass, `GeminiClient` class, factory functions |
-| `youtubesynth/services/token_tracker.py` | `PRICING` constants, `compute_cost()`, `TokenTracker` class |
+| `youtubesynth/services/token_tracker.py` | `PRICING` constants, `CostEstimate` dataclass, `compute_cost()`, `estimate_cost()`, `TokenTracker` class |
 | `tests/unit/test_gemini_client.py` | Mocks `genai` — tests retry logic, error handling |
-| `tests/unit/test_token_tracker.py` | Tests cost math, DB insertion, report aggregation |
+| `tests/unit/test_token_tracker.py` | Tests cost math, estimation, DB insertion, report aggregation |
 
 **Retry policy in `GeminiClient.generate()`:**
 - Retry on: `ResourceExhausted`, `ServiceUnavailable`
@@ -247,9 +285,47 @@ pytest tests/unit/test_youtube_service.py -v
 **Pricing constants:**
 ```python
 PRICING = {
-    "gemini-1.5-flash": {"input": 0.075 / 1_000_000, "output": 0.30 / 1_000_000},
-    "gemini-1.5-pro":   {"input": 3.50  / 1_000_000, "output": 10.50 / 1_000_000},
+    "gemini-2.5-flash-lite": {"input": 0.10 / 1_000_000, "output": 0.40  / 1_000_000},
+    "gemini-2.5-flash":      {"input": 0.30 / 1_000_000, "output": 2.50  / 1_000_000},
 }
+# Default flash model (summarizer): gemini-2.5-flash-lite
+# Default pro model (synthesis):    gemini-2.5-flash
+```
+
+**`CostEstimate` dataclass** (used before any Gemini calls):
+```python
+@dataclass
+class CostEstimate:
+    flash_model: str
+    pro_model: str
+    summarizer_input_tokens: int     # sum of all transcript token counts
+    summarizer_output_tokens: int    # projected at 25% of input
+    chunk_summarizer_input_tokens: int   # tokens for any transcripts exceeding CHUNK_TOKEN_THRESHOLD
+    chunk_summarizer_output_tokens: int
+    synthesis_input_tokens: int      # projected as sum of estimated summary sizes
+    synthesis_output_tokens: int     # fixed estimate (e.g. 3000 tokens)
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cost_usd: float
+    by_agent: dict                   # same shape as TokenTracker.get_report()["by_agent"]
+    available_count: int             # videos with transcripts (excludes "unavailable")
+    unavailable_count: int
+```
+
+**`estimate_cost()` standalone function:**
+```python
+def estimate_cost(
+    transcripts: list[TranscriptResult],
+    flash_model: str,
+    pro_model: str,
+    chunk_token_threshold: int = 8000,
+    output_ratio: float = 0.25,        # projected output = input * output_ratio
+    synthesis_output_tokens: int = 3000,
+) -> CostEstimate:
+    """
+    Tokenize transcripts with tiktoken cl100k_base; project output tokens;
+    return full CostEstimate without making any API calls.
+    """
 ```
 
 **`TokenTracker.get_report()` output shape:**
@@ -272,16 +348,18 @@ PRICING = {
 
 ```bash
 pytest tests/unit/test_gemini_client.py tests/unit/test_token_tracker.py -v
-# Expected: 9+ tests, all PASSED
+# Expected: 12+ tests, all PASSED
 # gemini_client: successful_generate, rate_limit_retries, max_retries_raises, invalid_arg_no_retry, token_counts
-# token_tracker: compute_cost_flash, compute_cost_pro, record_inserts_to_db, get_report_aggregates
+# token_tracker: compute_cost_flash, compute_cost_pro, record_inserts_to_db, get_report_aggregates,
+#                estimate_cost_short_transcripts, estimate_cost_long_transcripts_triggers_chunking,
+#                estimate_cost_excludes_unavailable
 ```
 
 ---
 
 ## Phase 6 — Agent 1: Transcript Summarizer
 
-**Goal:** Per-video summarization with chunking for long transcripts. Concurrent batch via `asyncio.Semaphore`.
+**Goal:** Per-video summarization with chunking for long transcripts. Concurrent batch via `asyncio.Semaphore`. Accepts pre-fetched `TranscriptResult` objects so that `pipeline.py` can fetch all transcripts, estimate cost, confirm with the user, and then summarize — without re-fetching.
 
 ### Files to create
 
@@ -294,9 +372,25 @@ pytest tests/unit/test_gemini_client.py tests/unit/test_token_tracker.py -v
 **`TranscriptSummarizer` key methods:**
 
 ```python
-async def summarize_video(job_id, video: VideoMeta) -> Optional[str]
-async def summarize_batch(job_id, videos: list[VideoMeta], semaphore: asyncio.Semaphore) -> list[Optional[str]]
+# Summarize one video using a pre-fetched transcript (no re-fetch).
+async def summarize_video(
+    job_id: str,
+    video: VideoMeta,
+    transcript: TranscriptResult,      # pre-fetched by pipeline before confirmation
+) -> Optional[str]
+
+# Summarize a batch using pre-fetched transcripts.
+async def summarize_batch(
+    job_id: str,
+    videos: list[VideoMeta],
+    transcripts: list[TranscriptResult],   # parallel list, same order as videos
+    semaphore: asyncio.Semaphore,
+) -> list[Optional[str]]
 ```
+
+> **Why pre-fetched transcripts?** The pipeline fetches all transcripts first, calls `estimate_cost()`,
+> shows the user the cost breakdown, and waits for confirmation. Only after confirmation does it call
+> `summarize_batch()`. Passing transcripts in avoids a redundant second network fetch.
 
 **Chunking flow** (when transcript > `CHUNK_TOKEN_THRESHOLD` tokens):
 ```
@@ -324,9 +418,10 @@ class ProgressEmitter(Protocol):
 
 ```bash
 pytest tests/unit/test_transcript_summarizer.py -v
-# Expected: 7+ tests, all PASSED
+# Expected: 8+ tests, all PASSED
 # Tests: short_transcript_direct, long_transcript_chunked, unavailable_skipped,
-#        summary_file_written, token_usage_recorded, sse_events_emitted, batch_handles_failures
+#        summary_file_written, token_usage_recorded, sse_events_emitted,
+#        batch_handles_failures, summarize_video_accepts_prefetched_transcript
 ```
 
 ---
@@ -334,6 +429,8 @@ pytest tests/unit/test_transcript_summarizer.py -v
 ## Phase 7 — Agent 2: Synthesis Agent
 
 **Goal:** Read all per-video summaries for a job → call Gemini Pro → write `result.md` + `token_report.json`.
+
+> **Note on cost estimation:** The upfront `CostEstimate` produced in Phase 5 already includes a projected synthesis cost (using estimated summary token sizes and the Pro model pricing). The `SynthesisAgent` itself does not re-estimate — it simply proceeds after the user has already confirmed in Phase 8/9.
 
 ### Files to create
 
@@ -343,17 +440,26 @@ pytest tests/unit/test_transcript_summarizer.py -v
 | `tests/unit/test_synthesis_agent.py` | Mocks Gemini — tests file I/O, DB updates, SSE events |
 
 **`SynthesisAgent.synthesize()` steps:**
-1. Read all `summaries/{job_id}/*.md` files
-2. Emit `synthesis_start` SSE event
-3. Format `SYNTHESIS_PROMPT` with style, num_videos, concatenated summaries
-4. Call Gemini Pro
-5. Write `output/{job_id}/result.md`
-6. Record token usage with `agent="synthesis"`, `video_id=None`
-7. Call `token_tracker.write_report()` → `output/{job_id}/token_report.json`
-8. Update job status to `"done"` in DB
-9. Emit `job_done` SSE event
+1. Read all `summaries/{job_id}/{video_id}/*.md` files
+2. Write `output/{job_id}/transcripts.md` — all per-video summaries concatenated with `---` separators
+3. Emit `synthesis_start` SSE event
+4. Format `SYNTHESIS_PROMPT` with style, num_videos, concatenated summaries
+5. Call Gemini Pro
+6. Write `output/{job_id}/overall_summary.md`
+7. Record token usage with `agent="synthesis"`, `video_id=None`
+8. Call `token_tracker.write_report()` → `output/{job_id}/token_report.json`
+9. Update job status to `"done"` in DB
+10. Emit `job_done` SSE event
 
 Raises `SynthesisError` if no summary files exist.
+
+**Output files written by SynthesisAgent:**
+```
+output/{job_id}/
+├── overall_summary.md    ← synthesis result (formerly result.md)
+├── transcripts.md        ← all per-video summaries combined
+└── token_report.json
+```
 
 ### How to test Phase 7
 
@@ -368,7 +474,7 @@ pytest tests/unit/test_synthesis_agent.py -v
 
 ## Phase 8 — CLI Entry Point (End-to-End Pipeline)
 
-**Goal:** `youtubesynth --input file.txt` runs the full pipeline with human-readable stdout progress.
+**Goal:** `youtubesynth --input file.txt` runs the full pipeline with human-readable stdout progress, including a cost estimation step and interactive confirmation before any Gemini calls are made.
 
 ### Files to create
 
@@ -376,7 +482,24 @@ pytest tests/unit/test_synthesis_agent.py -v
 |---|---|
 | `youtubesynth/pipeline.py` | `run_pipeline()` async function — composition root shared by CLI and API |
 | `youtubesynth/cli.py` | Full implementation replacing the Phase 1 stub |
-| `tests/unit/test_cli.py` | Tests arg parsing, error cases, KeyboardInterrupt |
+| `tests/unit/test_cli.py` | Tests arg parsing, error cases, KeyboardInterrupt, confirmation prompt |
+
+**`pipeline.py` — two-phase execution flow:**
+
+```
+Phase A — Transcript fetch (no Gemini calls):
+  1. create_job() in DB (status = "fetching")
+  2. upsert_video_progress(pending) for all videos
+  3. YouTubeService.get_transcript_batch() — fetch all transcripts concurrently
+  4. estimate_cost(transcripts, flash_model, pro_model)
+  5. call confirmation_callback(estimate) → bool
+     • if False → update_job_status("cancelled"); return early
+  6. update_job_status("running")
+
+Phase B — Summarize + Synthesize (Gemini calls):
+  7. TranscriptSummarizer.summarize_batch(videos, transcripts, semaphore)
+  8. SynthesisAgent.synthesize()
+```
 
 **`pipeline.py` signature:**
 ```python
@@ -390,8 +513,28 @@ async def run_pipeline(
     no_cache: bool,
     db: Database,
     progress_callback: Optional[ProgressEmitter] = None,
+    confirmation_callback: Optional[ConfirmationEmitter] = None,
 ) -> PipelineResult:
     ...
+```
+
+**`ConfirmationEmitter` protocol** (defined in `pipeline.py`, shared by CLI and API):
+```python
+class ConfirmationEmitter(Protocol):
+    async def confirm(self, job_id: str, estimate: CostEstimate) -> bool:
+        """Return True to proceed, False to cancel."""
+        ...
+```
+
+- **CLI:** `CLIConfirmationEmitter` — prints the estimate table to stdout, reads `y/N` from stdin (or auto-confirms if `--yes` passed)
+- **API:** `APIConfirmationEmitter` — emits `confirmation_required` SSE event, then waits on a per-job `asyncio.Event` that is set when `POST /api/jobs/{job_id}/confirm` (or `/cancel`) is called
+
+**`PipelineResult`** gains a `cancelled: bool` field. When cancelled, `result.md` is not written.
+
+**Job status transitions (updated):**
+```
+pending → fetching → pending_confirmation → running → done / failed
+                                          ↘ cancelled
 ```
 
 **CLI argument reference:**
@@ -407,27 +550,44 @@ async def run_pipeline(
 | `--concurrency N` | | `3` | Max concurrent Gemini calls |
 | `--no-cache` | | false | Bypass transcript cache |
 | `--verbose` | `-v` | false | Per-video progress lines |
+| `--yes` | `-y` | false | Skip cost confirmation prompt and proceed automatically |
 
-**Expected stdout:**
+**Expected stdout (with confirmation prompt):**
 ```
 [youtubesynth] Extracting URLs...  12 videos found
+[youtubesynth] Fetching transcripts...  11 fetched, 1 unavailable
+
+Estimated API cost:
+  Summarization  (gemini-2.5-flash-lite):  ~420,000 input / ~105,000 output  →  $0.084
+  Synthesis      (gemini-2.5-flash):         ~30,000 input /   ~3,000 output  →  $0.017
+  ──────────────────────────────────────────────────────────────────────────────────────
+  Total estimated cost:                                                          ~$0.101
+
+Proceed? [y/N] y
+
 [youtubesynth] Summarizing videos (3 concurrent)...
   [ 1/12] ✓ "Intro to Transformers"              (manual transcript, 1,240 tokens)
   [ 2/12] ✓ "Attention Walkthrough"               (auto-generated, 3,400 tokens)
   [ 3/12] ✗ "Deleted video"                       (no transcript — skipped)
-[youtubesynth] Synthesizing 11 summaries → gemini-1.5-pro...
+[youtubesynth] Synthesizing 11 summaries → gemini-2.5-flash...
 [youtubesynth] Done.
 
-Output : output/a3f1c2d4/result.md
-Report : output/a3f1c2d4/token_report.json
-Cost   : $0.042 (85,000 input + 12,000 output tokens)
+Output     : output/a3f1c2d4/overall_summary.md
+Transcripts: output/a3f1c2d4/transcripts.md
+Report     : output/a3f1c2d4/token_report.json
+Cost       : $0.098 (actual)
+```
+
+If the user answers `N` (or hits Ctrl+C at the prompt):
+```
+[youtubesynth] Aborted. No Gemini calls were made.
 ```
 
 ### How to test Phase 8
 
 ```bash
 youtubesynth --help
-# Expected: full argument listing
+# Expected: full argument listing including --yes
 
 GEMINI_API_KEY="" youtubesynth --input tests/fixtures/sample_videos.txt
 # Expected: "Error: GEMINI_API_KEY is not set..."
@@ -436,56 +596,117 @@ youtubesynth --input f.txt --playlist https://youtube.com/playlist?list=PL123
 # Expected: argparse error: not allowed with argument --input
 
 pytest tests/unit/test_cli.py -v
+# Tests: args_parsed, missing_api_key_error, mutual_exclusion_error,
+#        yes_flag_skips_confirmation, no_answer_cancels_job,
+#        keyboard_interrupt_handled
 
 # Live end-to-end test (requires real GEMINI_API_KEY + network):
-youtubesynth --input tests/fixtures/sample_videos.txt --max-videos 2 --verbose
-# Expected: result.md + token_report.json written to output/{job_id}/
+youtubesynth --input tests/fixtures/sample_videos.txt --max-videos 2 --verbose --yes
+# Expected: estimate printed, auto-confirmed, result.md + token_report.json written
 ```
 
 ---
 
 ## Phase 9 — FastAPI Web Server and SSE Streaming
 
-**Goal:** Full REST API. Pipeline runs as a background task. SSE streams real-time progress to clients.
+**Goal:** Full REST API. Pipeline runs as a background task. SSE streams real-time progress to clients, including a `confirmation_required` event that pauses the pipeline until the client calls `/confirm` or `/cancel`.
 
 ### Files to create
 
 | File | Purpose |
 |---|---|
 | `youtubesynth/api/schemas.py` | Pydantic v2 models for all request/response shapes |
-| `youtubesynth/api/sse.py` | `SSEManager` — per-job `asyncio.Queue`, `emit()`, `stream_events()` |
-| `youtubesynth/api/routes.py` | All six endpoints |
+| `youtubesynth/api/sse.py` | `SSEManager` — per-job `asyncio.Queue`, `emit()`, `stream_events()`; per-job `asyncio.Event` for confirmation gate |
+| `youtubesynth/api/routes.py` | All eight endpoints |
 | `youtubesynth/main.py` | Full FastAPI app with `lifespan` for DB connection |
 | `tests/unit/test_api.py` | `httpx.AsyncClient` with `ASGITransport`, mocked pipeline |
+
+**DB status values** (updated for this phase — add to `db.py` schema comment):
+```
+pending → fetching → pending_confirmation → running → done / failed
+                                          ↘ cancelled
+```
 
 **API endpoints:**
 
 | Method | Path | Description |
 |---|---|---|
+| `GET` | `/api/config` | Returns `{"has_server_key": bool}` — used by frontend Sidebar |
 | `POST` | `/api/jobs` | Submit job (multipart: `file` or `playlist_url`, `style`, `title`, `max_videos`) |
 | `GET` | `/api/jobs/{job_id}/stream` | SSE progress stream |
 | `GET` | `/api/jobs/{job_id}` | Poll job status |
-| `GET` | `/api/jobs/{job_id}/result` | Get synthesized content + token report |
-| `GET` | `/api/jobs/{job_id}/download` | Download `result.md` |
+| `POST` | `/api/jobs/{job_id}/confirm` | Confirm cost estimate → pipeline proceeds to summarization |
+| `POST` | `/api/jobs/{job_id}/cancel` | Cancel after cost estimate → pipeline aborts cleanly |
+| `GET` | `/api/jobs/{job_id}/result` | Get synthesized content + token report (JSON) |
+| `GET` | `/api/jobs/{job_id}/download` | Download `overall_summary.md` |
+| `GET` | `/api/jobs/{job_id}/transcripts` | Download `transcripts.md` |
 | `GET` | `/api/jobs/{job_id}/token-report` | Download `token_report.json` |
 
-**SSE event shapes** (from spec):
+**`POST /api/jobs` response** (updated to include cost estimate when transcripts are ready):
 ```json
-{ "event": "job_started",    "data": { "job_id": "...", "total_videos": 20 } }
-{ "event": "video_started",  "data": { "job_id": "...", "video_id": "...", "title": "...", "index": 3, "total": 20 } }
-{ "event": "video_done",     "data": { "job_id": "...", "video_id": "...", "transcript_type": "auto-generated", "tokens_used": 1200 } }
-{ "event": "video_failed",   "data": { "job_id": "...", "video_id": "...", "error": "No transcript available" } }
-{ "event": "synthesis_start","data": { "job_id": "...", "summary_count": 18 } }
-{ "event": "job_done",       "data": { "job_id": "...", "output_path": "...", "total_cost_usd": 0.042 } }
-{ "event": "job_failed",     "data": { "job_id": "...", "error": "..." } }
+{
+  "job_id": "a3f1c2d4",
+  "status": "fetching",
+  "video_count": 12
+}
+```
+The cost estimate arrives later as the `confirmation_required` SSE event (the pipeline fetches transcripts asynchronously in the background before pausing for confirmation).
+
+**`POST /api/jobs/{job_id}/confirm` response:**
+```json
+{ "job_id": "a3f1c2d4", "status": "running" }
+```
+Returns `409 Conflict` if job is not in `pending_confirmation` status.
+
+**`POST /api/jobs/{job_id}/cancel` response:**
+```json
+{ "job_id": "a3f1c2d4", "status": "cancelled" }
+```
+
+**`APIConfirmationEmitter`** (in `api/sse.py`):
+```python
+class APIConfirmationEmitter:
+    """Emits confirmation_required SSE event; blocks until /confirm or /cancel called."""
+    async def confirm(self, job_id: str, estimate: CostEstimate) -> bool:
+        await sse_manager.emit(job_id, "confirmation_required", estimate_to_dict(estimate))
+        await db.update_job_status(job_id, "pending_confirmation")
+        result = await sse_manager.wait_for_confirmation(job_id)  # blocks on asyncio.Event
+        return result  # True = confirmed, False = cancelled
+```
+
+**SSE event shapes** (updated):
+```json
+{ "event": "job_started",             "data": { "job_id": "...", "total_videos": 20 } }
+{ "event": "confirmation_required",   "data": { "job_id": "...", "estimate": {
+    "available_count": 11,
+    "unavailable_count": 1,
+    "summarizer_input_tokens": 420000,
+    "summarizer_output_tokens": 105000,
+    "synthesis_input_tokens": 30000,
+    "synthesis_output_tokens": 3000,
+    "total_cost_usd": 0.101,
+    "by_agent": { "summarizer": {...}, "synthesis": {...} }
+  }
+}}
+{ "event": "video_started",           "data": { "job_id": "...", "video_id": "...", "title": "...", "index": 3, "total": 20 } }
+{ "event": "video_done",              "data": { "job_id": "...", "video_id": "...", "transcript_type": "auto-generated", "tokens_used": 1200 } }
+{ "event": "video_failed",            "data": { "job_id": "...", "video_id": "...", "error": "No transcript available" } }
+{ "event": "synthesis_start",         "data": { "job_id": "...", "summary_count": 18 } }
+{ "event": "job_done",                "data": { "job_id": "...", "output_path": "...", "total_cost_usd": 0.042 } }
+{ "event": "job_cancelled",           "data": { "job_id": "..." } }
+{ "event": "job_failed",              "data": { "job_id": "...", "error": "..." } }
 ```
 
 ### How to test Phase 9
 
 ```bash
 pytest tests/unit/test_api.py -v
-# Expected: 7+ tests (submit_202, playlist_url, both_inputs_422,
-#           get_status, not_found_404, result_not_done_404, sse_closes_on_done)
+# Expected: 10+ tests
+# submit_202, playlist_url, both_inputs_422,
+# get_status, not_found_404, result_not_done_404,
+# sse_emits_confirmation_required, confirm_returns_running,
+# cancel_returns_cancelled, confirm_on_wrong_status_409,
+# sse_closes_on_job_done, sse_closes_on_cancelled
 
 uvicorn youtubesynth.main:app --reload --port 8000
 
@@ -494,17 +715,27 @@ curl -s http://localhost:8000/health
 
 curl -s -X POST http://localhost:8000/api/jobs \
   -F "file=@tests/fixtures/sample_videos.txt" -F "style=article"
-# Expected: {"job_id":"...","status":"pending","video_count":2}
+# Expected: {"job_id":"...","status":"fetching","video_count":2}
 
+# In a second terminal, watch the SSE stream (will pause at confirmation_required):
 curl -N http://localhost:8000/api/jobs/{job_id}/stream
-# Expected: SSE event stream ending with job_done
+
+# Confirm from a third terminal:
+curl -s -X POST http://localhost:8000/api/jobs/{job_id}/confirm
+# Expected: {"job_id":"...","status":"running"}
+# SSE stream resumes with video_started events...
+
+# Or cancel:
+curl -s -X POST http://localhost:8000/api/jobs/{job_id}/cancel
+# Expected: {"job_id":"...","status":"cancelled"}
+# SSE stream closes with job_cancelled event
 ```
 
 ---
 
 ## Phase 10 — Integration Tests and Fixture Completion
 
-**Goal:** Full pipeline test with mocked external services. All 67+ tests pass from a clean checkout.
+**Goal:** Full pipeline test with mocked external services. All 80+ tests pass from a clean checkout. Confirmation step is auto-confirmed in integration tests via a mock `ConfirmationEmitter`.
 
 ### Files to create
 
@@ -514,8 +745,24 @@ curl -N http://localhost:8000/api/jobs/{job_id}/stream
 | `tests/integration/test_full_pipeline.py` | End-to-end `run_pipeline()` test with mocked YouTube + Gemini |
 | `tests/integration/test_api_pipeline.py` | Submit via API, poll to completion, verify result endpoint |
 
+**Confirmation handling in integration tests:**
+
+```python
+# Auto-confirming stub used in all pipeline integration tests
+class AutoConfirmEmitter:
+    async def confirm(self, job_id: str, estimate: CostEstimate) -> bool:
+        return True  # always proceed
+
+# Cancelling stub used in cancellation test
+class AutoCancelEmitter:
+    async def confirm(self, job_id: str, estimate: CostEstimate) -> bool:
+        return False
+```
+
 **Integration test assertions for `test_full_pipeline.py`:**
-- `output/{job_id}/result.md` exists and has content
+- Cost estimate is produced before any Gemini calls (`estimate.total_cost_usd > 0`)
+- `estimate.available_count` matches number of non-unavailable transcripts
+- `output/{job_id}/result.md` exists and has content (when confirmed)
 - `output/{job_id}/token_report.json` is valid JSON with `job_id`, `total_cost_usd`, `by_agent`
 - `by_agent` contains `summarizer` and `synthesis` keys
 - DB job status is `"done"`, `done_videos == len(videos)`
@@ -523,12 +770,19 @@ curl -N http://localhost:8000/api/jobs/{job_id}/stream
 - `summaries/{job_id}/` contains one `.md` file per successful video
 - Unavailable transcript: video skipped, others continue, job status still `"done"`
 - Long transcript: `chunk_summarizer` agent appears in `by_agent` (chunking triggered)
+- **Cancellation test:** user cancels at confirmation → job status is `"cancelled"`, no `result.md`, zero Gemini calls made
+
+**Integration test assertions for `test_api_pipeline.py`:**
+- SSE stream emits `confirmation_required` event with valid `estimate` payload
+- `POST /confirm` transitions job to `running` and SSE resumes
+- `POST /cancel` transitions job to `cancelled`, SSE closes with `job_cancelled`
+- `POST /confirm` on a non-`pending_confirmation` job returns `409`
 
 ### How to test Phase 10
 
 ```bash
 pytest tests/ -v --tb=short
-# Expected: 67+ tests, all PASSED across unit + integration suites
+# Expected: 80+ tests, all PASSED across unit + integration suites
 
 pytest tests/ --cov=youtubesynth --cov-report=term-missing
 # Target: > 80% coverage
@@ -571,6 +825,20 @@ If both are true, skip that video. This makes the pipeline restartable after int
 ### 5. Max Videos Guard
 
 `POST /api/jobs` and `extract_urls()` both enforce `MAX_VIDEOS_PER_JOB`. If exceeded, return a clear error before any processing starts.
+
+### 6. Cost Confirmation Gate
+
+The pipeline is split into two phases to allow the user to see the estimated cost and confirm before any Gemini API calls are made:
+
+**Phase A (free):** Extract URLs → fetch all transcripts from YouTube → tokenize with `tiktoken` → compute `CostEstimate` → present to user.
+
+**Phase B (paid):** After confirmation → summarize transcripts → synthesize → write output.
+
+The confirmation mechanism is injected as a `ConfirmationEmitter` protocol, keeping agents and `pipeline.py` unaware of whether they are running in CLI or API mode:
+- **CLI:** Prints a formatted cost breakdown table to stdout; reads `y/N` from stdin (bypassed with `--yes`)
+- **API:** Emits `confirmation_required` SSE event with the estimate payload; blocks on an `asyncio.Event` until `POST /confirm` or `POST /cancel` is received
+
+If cancelled, the job status is set to `"cancelled"` in the DB and `pipeline.py` returns early. No summaries or output files are written.
 
 ---
 
@@ -628,35 +896,36 @@ Phase 7 — Agent 2: Synthesis
 └── tests/unit/test_synthesis_agent.py
 
 Phase 8 — CLI + Pipeline
-├── youtubesynth/pipeline.py
-├── youtubesynth/cli.py                    (full implementation)
+├── youtubesynth/pipeline.py               (ConfirmationEmitter protocol, two-phase run_pipeline)
+├── youtubesynth/cli.py                    (full implementation + --yes flag + CLIConfirmationEmitter)
 └── tests/unit/test_cli.py
 
 Phase 9 — FastAPI + SSE
-├── youtubesynth/api/schemas.py
-├── youtubesynth/api/sse.py
-├── youtubesynth/api/routes.py
-├── youtubesynth/main.py                   (full implementation)
+├── youtubesynth/api/schemas.py            (Pydantic v2 models: JobSubmitResponse, JobStatusResponse, etc.)
+├── youtubesynth/api/sse.py                (SSEManager + per-job asyncio.Event confirmation gate + APIConfirmationEmitter)
+├── youtubesynth/api/routes.py             (10 endpoints incl. /confirm, /cancel, /config, /transcripts)
+├── youtubesynth/main.py                   (FastAPI app + lifespan DB + CORS + conditional StaticFiles)
 └── tests/unit/test_api.py
 
 Phase 10 — Integration Tests
-├── tests/fixtures/mock_summaries/         (pre-written .md files)
+├── tests/fixtures/mock_summaries/         (pre-written .md fixture files)
 ├── tests/integration/test_full_pipeline.py
 └── tests/integration/test_api_pipeline.py
 
 Phase 11 — Web Frontend
-├── frontend/package.json
-├── frontend/vite.config.js
+├── frontend/package.json                  (React 18, Vite 5, Tailwind 3; no react-markdown in final build)
+├── frontend/vite.config.js               (proxy /api → :8000; build → youtubesynth/static/)
 ├── frontend/tailwind.config.js
 ├── frontend/postcss.config.js
 ├── frontend/index.html
 ├── frontend/src/main.jsx
 ├── frontend/src/index.css
-├── frontend/src/App.jsx
-├── frontend/src/components/Sidebar.jsx
-├── frontend/src/components/UploadForm.jsx
-├── frontend/src/components/ProgressPanel.jsx
-└── frontend/src/components/ResultView.jsx
+├── frontend/src/App.jsx                   (state machine: form | progress | result)
+├── frontend/src/components/Sidebar.jsx    (API key input; detects server key via GET /api/config)
+├── frontend/src/components/UploadForm.jsx (file drag-drop or playlist URL; style/max-videos/title)
+├── frontend/src/components/CostConfirmModal.jsx  (cost table; Proceed/Cancel; calls /confirm or /cancel)
+├── frontend/src/components/ProgressPanel.jsx     (SSE consumer; 7 phases; renders CostConfirmModal)
+└── frontend/src/components/ResultView.jsx        (token stats bar + 2 download cards; no inline render)
 ```
 
 ---
@@ -665,7 +934,7 @@ Phase 11 — Web Frontend
 
 ## Phase 11 — Web Frontend (React)
 
-**Goal:** Browser-based UI matching the design mockup. File upload or playlist URL → real-time progress via SSE → rendered markdown result with download.
+**Goal:** Browser-based UI matching the design mockup. File upload or playlist URL → real-time progress via SSE → **cost confirmation modal** → summarization progress → rendered markdown result with download.
 
 **Depends on:** Phase 9 (FastAPI backend must be running). Build output is served as static files by FastAPI.
 
@@ -680,45 +949,67 @@ Phase 11 — Web Frontend
 | `frontend/index.html` | Single-page app shell |
 | `frontend/src/main.jsx` | React root mount |
 | `frontend/src/index.css` | Tailwind directives + scrollbar styles |
-| `frontend/src/App.jsx` | Top-level state machine: `form → progress → result` |
-| `frontend/src/components/Sidebar.jsx` | API key input with show/hide toggle; persisted in `localStorage` |
+| `frontend/src/App.jsx` | Top-level state machine: `form → fetching → confirming → progress → result` |
+| `frontend/src/components/Sidebar.jsx` | API key input with show/hide toggle; persisted in `localStorage`; fetches `GET /api/config` on mount — shows `•••  from .env` + "Server key active" when server key is set, normal input otherwise |
 | `frontend/src/components/UploadForm.jsx` | File chooser (drag-and-drop) OR playlist URL; style + max-videos selectors; submits `POST /api/jobs` |
-| `frontend/src/components/ProgressPanel.jsx` | Connects to `GET /api/jobs/{id}/stream` SSE; renders per-video log with progress bar; transitions to result on `job_done` |
-| `frontend/src/components/ResultView.jsx` | Renders synthesized markdown via `react-markdown`; token cost stats bar; copy-to-clipboard + download buttons |
+| `frontend/src/components/CostConfirmModal.jsx` | Shown when `confirmation_required` SSE event arrives; displays cost breakdown table (Summarizer + Synthesis rows, token counts, USD); "Proceed" → `POST /confirm`, "Cancel" → `POST /cancel` |
+| `frontend/src/components/ProgressPanel.jsx` | Connects to `GET /api/jobs/{id}/stream` SSE; phases: `fetching → confirming → summarizing → synthesizing → done / cancelled / failed`; renders `CostConfirmModal` on `confirmation_required`; shows amber cancellation message on `job_cancelled` |
+| `frontend/src/components/ResultView.jsx` | Token cost stats bar; two download anchor cards: `overall_summary.md` and `transcripts.md`; no inline markdown rendering |
 
-### Backend changes required in Phase 9
+### Backend additions required for Phase 11
 
-When implementing Phase 9 (`youtubesynth/api/routes.py` and `youtubesynth/main.py`), add:
+These are already implemented across `routes.py` and `main.py`:
 
-1. **CORS middleware** for development (allows `http://localhost:3000`):
+1. **CORS middleware** (allows `http://localhost:3000` in dev):
 ```python
-from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
 ```
 
 2. **`X-Gemini-Api-Key` header support** in `POST /api/jobs`:
 ```python
-from fastapi import Header
-async def submit_job(..., x_gemini_api_key: Optional[str] = Header(default=None)):
-    api_key = x_gemini_api_key or settings.gemini_api_key
-    ...
+api_key = x_gemini_api_key or settings.gemini_api_key
 ```
 
-3. **Static file serving** for the built frontend (production):
+3. **`GET /api/config`** endpoint — tells the frontend whether a server-side key is configured:
 ```python
-from fastapi.staticfiles import StaticFiles
-app.mount("/", StaticFiles(directory="youtubesynth/static", html=True), name="static")
+@router.get("/config")
+async def get_config() -> dict:
+    return {"has_server_key": bool(settings.gemini_api_key)}
 ```
 
-### UI flow
+4. **`GET /api/jobs/{id}/transcripts`** endpoint — downloads `transcripts.md`.
+
+5. **Static file serving** (conditional — only mounts if `youtubesynth/static/` exists):
+```python
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(_static_dir):
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
+```
+Must be added **after** `app.include_router(router)` so API routes take precedence.
+
+### UI flow (updated)
 
 ```
-Sidebar            UploadForm               ProgressPanel              ResultView
-  │                    │                          │                         │
-  │ API key stored      │ POST /api/jobs            │ EventSource SSE stream   │ react-markdown
-  │ in localStorage     │ X-Gemini-Api-Key header   │ per-video log rows       │ copy / download
-  │                    │ multipart: file or URL     │ progress bar             │ token cost stats
-  │                    │ style / title / max_videos │ synthesis spinner        │
+Sidebar       UploadForm          ProgressPanel          CostConfirmModal    ResultView
+  │               │                     │                       │                │
+  │ API key        │ POST /api/jobs       │ SSE stream opens      │                │
+  │ in             │ → status: fetching   │                       │                │
+  │ localStorage   │                     │ (transcript fetch      │                │
+  │               │                     │  progress shown)       │                │
+  │               │                     │                       │                │
+  │               │                     │ confirmation_required  │ Cost breakdown │
+  │               │                     │ ─────────────────────▶│ table shown    │
+  │               │                     │                       │                │
+  │               │                     │ POST /confirm ◀────── │ "Proceed" btn  │
+  │               │                     │ POST /cancel  ◀────── │ "Cancel" btn   │
+  │               │                     │                       │                │
+  │               │                     │ per-video log rows    │                │
+  │               │                     │ progress bar          │                │
+  │               │                     │ synthesis spinner     │                │
+  │               │                     │ job_done ─────────────────────────────▶│
+  │               │                     │                       │  token stats    │
+  │               │                     │ job_cancelled →       │  download cards │
+  │               │                     │ "Cancelled" message   │  (2 .md files)  │
 ```
 
 ### How to test Phase 11
@@ -735,18 +1026,36 @@ npm run dev
 # Open http://localhost:3000
 
 # Manual test checklist:
-# [ ] Enter API key → persists on page refresh
-# [ ] Choose a .txt file → filename shown; playlist URL clears
+# Sidebar
+# [ ] If GEMINI_API_KEY in .env → field shows "•••••••••  from .env", status "Server key active"
+# [ ] If no server key → normal editable input; entering key shows "API key saved"
+# [ ] Key persists across page refreshes (localStorage)
+# [ ] Eye icon toggles key visibility
+#
+# Upload form
+# [ ] Choose a .txt/.xml/.json file → filename shown; playlist URL clears
 # [ ] Enter playlist URL → file chooser clears
-# [ ] Click "GetTranscript and Summary" → progress panel appears
-# [ ] Per-video rows update in real time as SSE events arrive
-# [ ] Progress bar advances; failed videos show red ✕
+# [ ] Submit disabled until file or URL provided
+# [ ] Style / max-videos / title options work
+#
+# Fetching + confirmation
+# [ ] Click "GetTranscript and Summary" → "Fetching transcripts…" spinner shown
+# [ ] Cost confirmation modal appears (Summarizer + Synthesis rows, total USD, token counts)
+# [ ] Modal shows correct available / unavailable video counts
+# [ ] "Cancel" → panel shows "Job cancelled. No API calls were made."
+# [ ] Resubmit → modal appears again; click "Proceed"
+#
+# Progress
+# [ ] Per-video rows appear with correct total count
+# [ ] Each row shows spinner while summarizing, ✓ when done, ✗ when failed
+# [ ] Progress bar advances; failed count shown in red
 # [ ] Synthesis spinner appears after all videos done
-# [ ] Result view shows rendered markdown
-# [ ] Stats bar shows correct cost and token counts
-# [ ] Copy button copies raw markdown to clipboard
-# [ ] Download button downloads result.md
-# [ ] "New job" button resets to UploadForm
+#
+# Result view
+# [ ] Token stats bar shows total cost, input/output tokens, per-agent costs
+# [ ] "overall_summary.md" download card downloads the synthesized article
+# [ ] "transcripts.md" download card downloads per-video summaries
+# [ ] "New job" button resets to upload form
 
 # Build for production (output → youtubesynth/static/)
 npm run build

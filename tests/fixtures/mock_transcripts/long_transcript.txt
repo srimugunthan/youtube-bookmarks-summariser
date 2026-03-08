@@ -1,0 +1,1946 @@
+# transcript_type: auto-generated
+# language: en
+[00:00] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[00:05] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[00:10] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[00:15] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[00:20] vocabulary size, context length limitations, and inference optimization techniques such as
+[00:25] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[00:30] understanding of how modern language models work under the hood and how to apply them effectively.
+[00:35] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[00:40] that process tokens sequentially, attention allows every token to directly attend to every other
+[00:45] token in the sequence. The attention score between two tokens is computed as the dot product of
+[00:50] their query and key vectors, scaled by the square root of the dimension, then passed through
+[00:55] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:00] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:05] relationships across the entire sequence regardless of distance.
+[01:10] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:15] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:20] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:25] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:30] representational capacity than a single attention operation could provide.
+[01:35] Positional encodings are added to token embeddings to inject information about position. The
+[01:40] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:45] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:50] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:55] because they generalize well to sequence lengths beyond those seen during training.
+[02:00] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:05] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:10] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:15] large language models. Residual connections allow gradients to flow directly through the
+[02:20] network during backpropagation, enabling training of very deep models.
+[02:25] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:30] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:35] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:40] This change was found to improve performance across a wide range of tasks.
+[02:45] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:50] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:55] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[03:00] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[03:05] of around thirty thousand to one hundred thousand tokens.
+[03:10] Training large language models requires enormous computational resources. Models with billions
+[03:15] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[03:20] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[03:25] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[03:30] memory by recomputing activations during the backward pass instead of storing them.
+[03:35] The training objective for language models is next-token prediction. The model is trained to
+[03:40] maximize the log probability of the next token given all preceding tokens. This deceptively
+[03:45] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[03:50] and surprising capabilities including reasoning, code generation, and instruction following.
+[03:55] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[04:00] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[04:05] Reinforcement learning from human feedback further aligns the model by training a reward model
+[04:10] on human preference data and using it to guide the policy model toward outputs that humans rate
+[04:15] as more helpful, harmless, and honest.
+[04:20] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[04:25] stores the key and value tensors from the attention mechanism so they do not need to be
+[04:30] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[04:35] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[04:40] large model, achieving significant speedups for autoregressive generation.
+[04:45] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[04:50] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[04:55] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[05:00] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[05:05] of the original model performance while cutting memory requirements by four times.
+[05:10] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[05:15] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[05:20] and linear attention approximate the full attention mechanism at lower computational cost.
+[05:25] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[05:30] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[05:35] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[05:40] time, relevant documents are retrieved from a large corpus and included in the context window
+[05:45] alongside the user query. This allows models to access up-to-date information without retraining
+[05:50] and reduces hallucination by grounding responses in retrieved evidence.
+[05:55] Evaluation of language models is challenging because the space of possible outputs is vast and
+[06:00] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[06:05] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[06:10] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[06:15] models based on human pairwise preferences across diverse tasks.
+[06:20] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[06:25] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[06:30] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[06:35] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[06:40] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[06:45] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[06:50] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[06:55] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[07:00] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[07:05] vocabulary size, context length limitations, and inference optimization techniques such as
+[07:10] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[07:15] understanding of how modern language models work under the hood and how to apply them effectively.
+[07:20] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[07:25] that process tokens sequentially, attention allows every token to directly attend to every other
+[07:30] token in the sequence. The attention score between two tokens is computed as the dot product of
+[07:35] their query and key vectors, scaled by the square root of the dimension, then passed through
+[07:40] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[07:45] sum of value vectors. The result is a context-aware representation for each token that captures
+[07:50] relationships across the entire sequence regardless of distance.
+[07:55] Multi-head attention runs several attention operations in parallel with different learned projections.
+[08:00] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[08:05] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[08:10] are concatenated and projected back to the model dimension. This gives the model much richer
+[08:15] representational capacity than a single attention operation could provide.
+[08:20] Positional encodings are added to token embeddings to inject information about position. The
+[08:25] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[08:30] Later work explored learned positional embeddings, relative position encodings, and rotary
+[08:35] position embeddings. Rotary encodings have become the dominant approach in modern models
+[08:40] because they generalize well to sequence lengths beyond those seen during training.
+[08:45] Layer normalization stabilizes training by normalizing the activations within each layer.
+[08:50] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[08:55] sublayers rather than after, have been found to train more stably and are used in most modern
+[09:00] large language models. Residual connections allow gradients to flow directly through the
+[09:05] network during backpropagation, enabling training of very deep models.
+[09:10] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[09:15] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[09:20] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[09:25] This change was found to improve performance across a wide range of tasks.
+[09:30] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[09:35] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[09:40] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[09:45] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[09:50] of around thirty thousand to one hundred thousand tokens.
+[09:55] Training large language models requires enormous computational resources. Models with billions
+[10:00] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[10:05] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[10:10] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[10:15] memory by recomputing activations during the backward pass instead of storing them.
+[10:20] The training objective for language models is next-token prediction. The model is trained to
+[10:25] maximize the log probability of the next token given all preceding tokens. This deceptively
+[10:30] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[10:35] and surprising capabilities including reasoning, code generation, and instruction following.
+[10:40] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[10:45] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[10:50] Reinforcement learning from human feedback further aligns the model by training a reward model
+[10:55] on human preference data and using it to guide the policy model toward outputs that humans rate
+[11:00] as more helpful, harmless, and honest.
+[11:05] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[11:10] stores the key and value tensors from the attention mechanism so they do not need to be
+[11:15] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[11:20] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[11:25] large model, achieving significant speedups for autoregressive generation.
+[11:30] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[11:35] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[11:40] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[11:45] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[11:50] of the original model performance while cutting memory requirements by four times.
+[11:55] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[12:00] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[12:05] and linear attention approximate the full attention mechanism at lower computational cost.
+[12:10] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[12:15] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[12:20] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[12:25] time, relevant documents are retrieved from a large corpus and included in the context window
+[12:30] alongside the user query. This allows models to access up-to-date information without retraining
+[12:35] and reduces hallucination by grounding responses in retrieved evidence.
+[12:40] Evaluation of language models is challenging because the space of possible outputs is vast and
+[12:45] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[12:50] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[12:55] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[13:00] models based on human pairwise preferences across diverse tasks.
+[13:05] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[13:10] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[13:15] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[13:20] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[13:25] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[13:30] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[13:35] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[13:40] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[13:45] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[13:50] vocabulary size, context length limitations, and inference optimization techniques such as
+[13:55] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[14:00] understanding of how modern language models work under the hood and how to apply them effectively.
+[14:05] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[14:10] that process tokens sequentially, attention allows every token to directly attend to every other
+[14:15] token in the sequence. The attention score between two tokens is computed as the dot product of
+[14:20] their query and key vectors, scaled by the square root of the dimension, then passed through
+[14:25] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[14:30] sum of value vectors. The result is a context-aware representation for each token that captures
+[14:35] relationships across the entire sequence regardless of distance.
+[14:40] Multi-head attention runs several attention operations in parallel with different learned projections.
+[14:45] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[14:50] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[14:55] are concatenated and projected back to the model dimension. This gives the model much richer
+[15:00] representational capacity than a single attention operation could provide.
+[15:05] Positional encodings are added to token embeddings to inject information about position. The
+[15:10] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[15:15] Later work explored learned positional embeddings, relative position encodings, and rotary
+[15:20] position embeddings. Rotary encodings have become the dominant approach in modern models
+[15:25] because they generalize well to sequence lengths beyond those seen during training.
+[15:30] Layer normalization stabilizes training by normalizing the activations within each layer.
+[15:35] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[15:40] sublayers rather than after, have been found to train more stably and are used in most modern
+[15:45] large language models. Residual connections allow gradients to flow directly through the
+[15:50] network during backpropagation, enabling training of very deep models.
+[15:55] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[16:00] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[16:05] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[16:10] This change was found to improve performance across a wide range of tasks.
+[16:15] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[16:20] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[16:25] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[16:30] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[16:35] of around thirty thousand to one hundred thousand tokens.
+[16:40] Training large language models requires enormous computational resources. Models with billions
+[16:45] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[16:50] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[16:55] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[17:00] memory by recomputing activations during the backward pass instead of storing them.
+[17:05] The training objective for language models is next-token prediction. The model is trained to
+[17:10] maximize the log probability of the next token given all preceding tokens. This deceptively
+[17:15] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[17:20] and surprising capabilities including reasoning, code generation, and instruction following.
+[17:25] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[17:30] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[17:35] Reinforcement learning from human feedback further aligns the model by training a reward model
+[17:40] on human preference data and using it to guide the policy model toward outputs that humans rate
+[17:45] as more helpful, harmless, and honest.
+[17:50] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[17:55] stores the key and value tensors from the attention mechanism so they do not need to be
+[18:00] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[18:05] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[18:10] large model, achieving significant speedups for autoregressive generation.
+[18:15] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[18:20] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[18:25] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[18:30] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[18:35] of the original model performance while cutting memory requirements by four times.
+[18:40] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[18:45] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[18:50] and linear attention approximate the full attention mechanism at lower computational cost.
+[18:55] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[19:00] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[19:05] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[19:10] time, relevant documents are retrieved from a large corpus and included in the context window
+[19:15] alongside the user query. This allows models to access up-to-date information without retraining
+[19:20] and reduces hallucination by grounding responses in retrieved evidence.
+[19:25] Evaluation of language models is challenging because the space of possible outputs is vast and
+[19:30] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[19:35] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[19:40] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[19:45] models based on human pairwise preferences across diverse tasks.
+[19:50] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[19:55] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[20:00] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[20:05] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[20:10] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[20:15] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[20:20] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[20:25] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[20:30] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[20:35] vocabulary size, context length limitations, and inference optimization techniques such as
+[20:40] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[20:45] understanding of how modern language models work under the hood and how to apply them effectively.
+[20:50] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[20:55] that process tokens sequentially, attention allows every token to directly attend to every other
+[21:00] token in the sequence. The attention score between two tokens is computed as the dot product of
+[21:05] their query and key vectors, scaled by the square root of the dimension, then passed through
+[21:10] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[21:15] sum of value vectors. The result is a context-aware representation for each token that captures
+[21:20] relationships across the entire sequence regardless of distance.
+[21:25] Multi-head attention runs several attention operations in parallel with different learned projections.
+[21:30] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[21:35] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[21:40] are concatenated and projected back to the model dimension. This gives the model much richer
+[21:45] representational capacity than a single attention operation could provide.
+[21:50] Positional encodings are added to token embeddings to inject information about position. The
+[21:55] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[22:00] Later work explored learned positional embeddings, relative position encodings, and rotary
+[22:05] position embeddings. Rotary encodings have become the dominant approach in modern models
+[22:10] because they generalize well to sequence lengths beyond those seen during training.
+[22:15] Layer normalization stabilizes training by normalizing the activations within each layer.
+[22:20] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[22:25] sublayers rather than after, have been found to train more stably and are used in most modern
+[22:30] large language models. Residual connections allow gradients to flow directly through the
+[22:35] network during backpropagation, enabling training of very deep models.
+[22:40] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[22:45] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[22:50] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[22:55] This change was found to improve performance across a wide range of tasks.
+[23:00] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[23:05] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[23:10] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[23:15] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[23:20] of around thirty thousand to one hundred thousand tokens.
+[23:25] Training large language models requires enormous computational resources. Models with billions
+[23:30] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[23:35] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[23:40] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[23:45] memory by recomputing activations during the backward pass instead of storing them.
+[23:50] The training objective for language models is next-token prediction. The model is trained to
+[23:55] maximize the log probability of the next token given all preceding tokens. This deceptively
+[24:00] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[24:05] and surprising capabilities including reasoning, code generation, and instruction following.
+[24:10] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[24:15] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[24:20] Reinforcement learning from human feedback further aligns the model by training a reward model
+[24:25] on human preference data and using it to guide the policy model toward outputs that humans rate
+[24:30] as more helpful, harmless, and honest.
+[24:35] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[24:40] stores the key and value tensors from the attention mechanism so they do not need to be
+[24:45] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[24:50] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[24:55] large model, achieving significant speedups for autoregressive generation.
+[25:00] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[25:05] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[25:10] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[25:15] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[25:20] of the original model performance while cutting memory requirements by four times.
+[25:25] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[25:30] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[25:35] and linear attention approximate the full attention mechanism at lower computational cost.
+[25:40] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[25:45] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[25:50] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[25:55] time, relevant documents are retrieved from a large corpus and included in the context window
+[26:00] alongside the user query. This allows models to access up-to-date information without retraining
+[26:05] and reduces hallucination by grounding responses in retrieved evidence.
+[26:10] Evaluation of language models is challenging because the space of possible outputs is vast and
+[26:15] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[26:20] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[26:25] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[26:30] models based on human pairwise preferences across diverse tasks.
+[26:35] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[26:40] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[26:45] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[26:50] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[26:55] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[27:00] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[27:05] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[27:10] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[27:15] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[27:20] vocabulary size, context length limitations, and inference optimization techniques such as
+[27:25] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[27:30] understanding of how modern language models work under the hood and how to apply them effectively.
+[27:35] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[27:40] that process tokens sequentially, attention allows every token to directly attend to every other
+[27:45] token in the sequence. The attention score between two tokens is computed as the dot product of
+[27:50] their query and key vectors, scaled by the square root of the dimension, then passed through
+[27:55] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[28:00] sum of value vectors. The result is a context-aware representation for each token that captures
+[28:05] relationships across the entire sequence regardless of distance.
+[28:10] Multi-head attention runs several attention operations in parallel with different learned projections.
+[28:15] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[28:20] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[28:25] are concatenated and projected back to the model dimension. This gives the model much richer
+[28:30] representational capacity than a single attention operation could provide.
+[28:35] Positional encodings are added to token embeddings to inject information about position. The
+[28:40] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[28:45] Later work explored learned positional embeddings, relative position encodings, and rotary
+[28:50] position embeddings. Rotary encodings have become the dominant approach in modern models
+[28:55] because they generalize well to sequence lengths beyond those seen during training.
+[29:00] Layer normalization stabilizes training by normalizing the activations within each layer.
+[29:05] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[29:10] sublayers rather than after, have been found to train more stably and are used in most modern
+[29:15] large language models. Residual connections allow gradients to flow directly through the
+[29:20] network during backpropagation, enabling training of very deep models.
+[29:25] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[29:30] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[29:35] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[29:40] This change was found to improve performance across a wide range of tasks.
+[29:45] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[29:50] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[29:55] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[30:00] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[30:05] of around thirty thousand to one hundred thousand tokens.
+[30:10] Training large language models requires enormous computational resources. Models with billions
+[30:15] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[30:20] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[30:25] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[30:30] memory by recomputing activations during the backward pass instead of storing them.
+[30:35] The training objective for language models is next-token prediction. The model is trained to
+[30:40] maximize the log probability of the next token given all preceding tokens. This deceptively
+[30:45] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[30:50] and surprising capabilities including reasoning, code generation, and instruction following.
+[30:55] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[31:00] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[31:05] Reinforcement learning from human feedback further aligns the model by training a reward model
+[31:10] on human preference data and using it to guide the policy model toward outputs that humans rate
+[31:15] as more helpful, harmless, and honest.
+[31:20] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[31:25] stores the key and value tensors from the attention mechanism so they do not need to be
+[31:30] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[31:35] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[31:40] large model, achieving significant speedups for autoregressive generation.
+[31:45] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[31:50] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[31:55] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[32:00] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[32:05] of the original model performance while cutting memory requirements by four times.
+[32:10] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[32:15] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[32:20] and linear attention approximate the full attention mechanism at lower computational cost.
+[32:25] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[32:30] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[32:35] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[32:40] time, relevant documents are retrieved from a large corpus and included in the context window
+[32:45] alongside the user query. This allows models to access up-to-date information without retraining
+[32:50] and reduces hallucination by grounding responses in retrieved evidence.
+[32:55] Evaluation of language models is challenging because the space of possible outputs is vast and
+[33:00] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[33:05] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[33:10] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[33:15] models based on human pairwise preferences across diverse tasks.
+[33:20] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[33:25] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[33:30] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[33:35] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[33:40] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[33:45] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[33:50] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[33:55] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[34:00] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[34:05] vocabulary size, context length limitations, and inference optimization techniques such as
+[34:10] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[34:15] understanding of how modern language models work under the hood and how to apply them effectively.
+[34:20] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[34:25] that process tokens sequentially, attention allows every token to directly attend to every other
+[34:30] token in the sequence. The attention score between two tokens is computed as the dot product of
+[34:35] their query and key vectors, scaled by the square root of the dimension, then passed through
+[34:40] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[34:45] sum of value vectors. The result is a context-aware representation for each token that captures
+[34:50] relationships across the entire sequence regardless of distance.
+[34:55] Multi-head attention runs several attention operations in parallel with different learned projections.
+[35:00] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[35:05] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[35:10] are concatenated and projected back to the model dimension. This gives the model much richer
+[35:15] representational capacity than a single attention operation could provide.
+[35:20] Positional encodings are added to token embeddings to inject information about position. The
+[35:25] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[35:30] Later work explored learned positional embeddings, relative position encodings, and rotary
+[35:35] position embeddings. Rotary encodings have become the dominant approach in modern models
+[35:40] because they generalize well to sequence lengths beyond those seen during training.
+[35:45] Layer normalization stabilizes training by normalizing the activations within each layer.
+[35:50] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[35:55] sublayers rather than after, have been found to train more stably and are used in most modern
+[36:00] large language models. Residual connections allow gradients to flow directly through the
+[36:05] network during backpropagation, enabling training of very deep models.
+[36:10] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[36:15] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[36:20] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[36:25] This change was found to improve performance across a wide range of tasks.
+[36:30] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[36:35] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[36:40] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[36:45] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[36:50] of around thirty thousand to one hundred thousand tokens.
+[36:55] Training large language models requires enormous computational resources. Models with billions
+[37:00] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[37:05] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[37:10] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[37:15] memory by recomputing activations during the backward pass instead of storing them.
+[37:20] The training objective for language models is next-token prediction. The model is trained to
+[37:25] maximize the log probability of the next token given all preceding tokens. This deceptively
+[37:30] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[37:35] and surprising capabilities including reasoning, code generation, and instruction following.
+[37:40] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[37:45] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[37:50] Reinforcement learning from human feedback further aligns the model by training a reward model
+[37:55] on human preference data and using it to guide the policy model toward outputs that humans rate
+[38:00] as more helpful, harmless, and honest.
+[38:05] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[38:10] stores the key and value tensors from the attention mechanism so they do not need to be
+[38:15] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[38:20] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[38:25] large model, achieving significant speedups for autoregressive generation.
+[38:30] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[38:35] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[38:40] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[38:45] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[38:50] of the original model performance while cutting memory requirements by four times.
+[38:55] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[39:00] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[39:05] and linear attention approximate the full attention mechanism at lower computational cost.
+[39:10] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[39:15] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[39:20] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[39:25] time, relevant documents are retrieved from a large corpus and included in the context window
+[39:30] alongside the user query. This allows models to access up-to-date information without retraining
+[39:35] and reduces hallucination by grounding responses in retrieved evidence.
+[39:40] Evaluation of language models is challenging because the space of possible outputs is vast and
+[39:45] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[39:50] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[39:55] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[40:00] models based on human pairwise preferences across diverse tasks.
+[40:05] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[40:10] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[40:15] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[40:20] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[40:25] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[40:30] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[40:35] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[40:40] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[40:45] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[40:50] vocabulary size, context length limitations, and inference optimization techniques such as
+[40:55] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[41:00] understanding of how modern language models work under the hood and how to apply them effectively.
+[41:05] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[41:10] that process tokens sequentially, attention allows every token to directly attend to every other
+[41:15] token in the sequence. The attention score between two tokens is computed as the dot product of
+[41:20] their query and key vectors, scaled by the square root of the dimension, then passed through
+[41:25] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[41:30] sum of value vectors. The result is a context-aware representation for each token that captures
+[41:35] relationships across the entire sequence regardless of distance.
+[41:40] Multi-head attention runs several attention operations in parallel with different learned projections.
+[41:45] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[41:50] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[41:55] are concatenated and projected back to the model dimension. This gives the model much richer
+[42:00] representational capacity than a single attention operation could provide.
+[42:05] Positional encodings are added to token embeddings to inject information about position. The
+[42:10] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[42:15] Later work explored learned positional embeddings, relative position encodings, and rotary
+[42:20] position embeddings. Rotary encodings have become the dominant approach in modern models
+[42:25] because they generalize well to sequence lengths beyond those seen during training.
+[42:30] Layer normalization stabilizes training by normalizing the activations within each layer.
+[42:35] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[42:40] sublayers rather than after, have been found to train more stably and are used in most modern
+[42:45] large language models. Residual connections allow gradients to flow directly through the
+[42:50] network during backpropagation, enabling training of very deep models.
+[42:55] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[43:00] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[43:05] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[43:10] This change was found to improve performance across a wide range of tasks.
+[43:15] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[43:20] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[43:25] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[43:30] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[43:35] of around thirty thousand to one hundred thousand tokens.
+[43:40] Training large language models requires enormous computational resources. Models with billions
+[43:45] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[43:50] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[43:55] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[44:00] memory by recomputing activations during the backward pass instead of storing them.
+[44:05] The training objective for language models is next-token prediction. The model is trained to
+[44:10] maximize the log probability of the next token given all preceding tokens. This deceptively
+[44:15] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[44:20] and surprising capabilities including reasoning, code generation, and instruction following.
+[44:25] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[44:30] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[44:35] Reinforcement learning from human feedback further aligns the model by training a reward model
+[44:40] on human preference data and using it to guide the policy model toward outputs that humans rate
+[44:45] as more helpful, harmless, and honest.
+[44:50] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[44:55] stores the key and value tensors from the attention mechanism so they do not need to be
+[45:00] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[45:05] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[45:10] large model, achieving significant speedups for autoregressive generation.
+[45:15] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[45:20] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[45:25] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[45:30] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[45:35] of the original model performance while cutting memory requirements by four times.
+[45:40] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[45:45] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[45:50] and linear attention approximate the full attention mechanism at lower computational cost.
+[45:55] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[46:00] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[46:05] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[46:10] time, relevant documents are retrieved from a large corpus and included in the context window
+[46:15] alongside the user query. This allows models to access up-to-date information without retraining
+[46:20] and reduces hallucination by grounding responses in retrieved evidence.
+[46:25] Evaluation of language models is challenging because the space of possible outputs is vast and
+[46:30] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[46:35] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[46:40] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[46:45] models based on human pairwise preferences across diverse tasks.
+[46:50] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[46:55] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[47:00] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[47:05] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[47:10] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[47:15] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[47:20] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[47:25] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[47:30] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[47:35] vocabulary size, context length limitations, and inference optimization techniques such as
+[47:40] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[47:45] understanding of how modern language models work under the hood and how to apply them effectively.
+[47:50] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[47:55] that process tokens sequentially, attention allows every token to directly attend to every other
+[48:00] token in the sequence. The attention score between two tokens is computed as the dot product of
+[48:05] their query and key vectors, scaled by the square root of the dimension, then passed through
+[48:10] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[48:15] sum of value vectors. The result is a context-aware representation for each token that captures
+[48:20] relationships across the entire sequence regardless of distance.
+[48:25] Multi-head attention runs several attention operations in parallel with different learned projections.
+[48:30] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[48:35] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[48:40] are concatenated and projected back to the model dimension. This gives the model much richer
+[48:45] representational capacity than a single attention operation could provide.
+[48:50] Positional encodings are added to token embeddings to inject information about position. The
+[48:55] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[49:00] Later work explored learned positional embeddings, relative position encodings, and rotary
+[49:05] position embeddings. Rotary encodings have become the dominant approach in modern models
+[49:10] because they generalize well to sequence lengths beyond those seen during training.
+[49:15] Layer normalization stabilizes training by normalizing the activations within each layer.
+[49:20] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[49:25] sublayers rather than after, have been found to train more stably and are used in most modern
+[49:30] large language models. Residual connections allow gradients to flow directly through the
+[49:35] network during backpropagation, enabling training of very deep models.
+[49:40] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[49:45] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[49:50] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[49:55] This change was found to improve performance across a wide range of tasks.
+[50:00] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[50:05] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[50:10] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[50:15] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[50:20] of around thirty thousand to one hundred thousand tokens.
+[50:25] Training large language models requires enormous computational resources. Models with billions
+[50:30] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[50:35] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[50:40] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[50:45] memory by recomputing activations during the backward pass instead of storing them.
+[50:50] The training objective for language models is next-token prediction. The model is trained to
+[50:55] maximize the log probability of the next token given all preceding tokens. This deceptively
+[51:00] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[51:05] and surprising capabilities including reasoning, code generation, and instruction following.
+[51:10] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[51:15] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[51:20] Reinforcement learning from human feedback further aligns the model by training a reward model
+[51:25] on human preference data and using it to guide the policy model toward outputs that humans rate
+[51:30] as more helpful, harmless, and honest.
+[51:35] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[51:40] stores the key and value tensors from the attention mechanism so they do not need to be
+[51:45] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[51:50] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[51:55] large model, achieving significant speedups for autoregressive generation.
+[52:00] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[52:05] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[52:10] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[52:15] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[52:20] of the original model performance while cutting memory requirements by four times.
+[52:25] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[52:30] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[52:35] and linear attention approximate the full attention mechanism at lower computational cost.
+[52:40] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[52:45] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[52:50] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[52:55] time, relevant documents are retrieved from a large corpus and included in the context window
+[53:00] alongside the user query. This allows models to access up-to-date information without retraining
+[53:05] and reduces hallucination by grounding responses in retrieved evidence.
+[53:10] Evaluation of language models is challenging because the space of possible outputs is vast and
+[53:15] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[53:20] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[53:25] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[53:30] models based on human pairwise preferences across diverse tasks.
+[53:35] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[53:40] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[53:45] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[53:50] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[53:55] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[54:00] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[54:05] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[54:10] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[54:15] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[54:20] vocabulary size, context length limitations, and inference optimization techniques such as
+[54:25] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[54:30] understanding of how modern language models work under the hood and how to apply them effectively.
+[54:35] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[54:40] that process tokens sequentially, attention allows every token to directly attend to every other
+[54:45] token in the sequence. The attention score between two tokens is computed as the dot product of
+[54:50] their query and key vectors, scaled by the square root of the dimension, then passed through
+[54:55] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[55:00] sum of value vectors. The result is a context-aware representation for each token that captures
+[55:05] relationships across the entire sequence regardless of distance.
+[55:10] Multi-head attention runs several attention operations in parallel with different learned projections.
+[55:15] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[55:20] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[55:25] are concatenated and projected back to the model dimension. This gives the model much richer
+[55:30] representational capacity than a single attention operation could provide.
+[55:35] Positional encodings are added to token embeddings to inject information about position. The
+[55:40] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[55:45] Later work explored learned positional embeddings, relative position encodings, and rotary
+[55:50] position embeddings. Rotary encodings have become the dominant approach in modern models
+[55:55] because they generalize well to sequence lengths beyond those seen during training.
+[56:00] Layer normalization stabilizes training by normalizing the activations within each layer.
+[56:05] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[56:10] sublayers rather than after, have been found to train more stably and are used in most modern
+[56:15] large language models. Residual connections allow gradients to flow directly through the
+[56:20] network during backpropagation, enabling training of very deep models.
+[56:25] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[56:30] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[56:35] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[56:40] This change was found to improve performance across a wide range of tasks.
+[56:45] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[56:50] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[56:55] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[57:00] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[57:05] of around thirty thousand to one hundred thousand tokens.
+[57:10] Training large language models requires enormous computational resources. Models with billions
+[57:15] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[57:20] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[57:25] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[57:30] memory by recomputing activations during the backward pass instead of storing them.
+[57:35] The training objective for language models is next-token prediction. The model is trained to
+[57:40] maximize the log probability of the next token given all preceding tokens. This deceptively
+[57:45] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[57:50] and surprising capabilities including reasoning, code generation, and instruction following.
+[57:55] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[58:00] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[58:05] Reinforcement learning from human feedback further aligns the model by training a reward model
+[58:10] on human preference data and using it to guide the policy model toward outputs that humans rate
+[58:15] as more helpful, harmless, and honest.
+[58:20] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[58:25] stores the key and value tensors from the attention mechanism so they do not need to be
+[58:30] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[58:35] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[58:40] large model, achieving significant speedups for autoregressive generation.
+[58:45] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[58:50] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[58:55] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[59:00] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[59:05] of the original model performance while cutting memory requirements by four times.
+[59:10] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[59:15] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[59:20] and linear attention approximate the full attention mechanism at lower computational cost.
+[59:25] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[59:30] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[59:35] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[59:40] time, relevant documents are retrieved from a large corpus and included in the context window
+[59:45] alongside the user query. This allows models to access up-to-date information without retraining
+[59:50] and reduces hallucination by grounding responses in retrieved evidence.
+[59:55] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:00:00] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:00:05] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:00:10] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:00:15] models based on human pairwise preferences across diverse tasks.
+[01:00:20] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:00:25] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:00:30] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:00:35] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:00:40] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:00:45] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:00:50] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:00:55] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:01:00] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:01:05] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:01:10] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:01:15] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:01:20] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:01:25] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:01:30] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:01:35] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:01:40] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:01:45] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:01:50] relationships across the entire sequence regardless of distance.
+[01:01:55] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:02:00] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:02:05] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:02:10] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:02:15] representational capacity than a single attention operation could provide.
+[01:02:20] Positional encodings are added to token embeddings to inject information about position. The
+[01:02:25] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:02:30] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:02:35] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:02:40] because they generalize well to sequence lengths beyond those seen during training.
+[01:02:45] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:02:50] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:02:55] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:03:00] large language models. Residual connections allow gradients to flow directly through the
+[01:03:05] network during backpropagation, enabling training of very deep models.
+[01:03:10] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:03:15] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:03:20] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:03:25] This change was found to improve performance across a wide range of tasks.
+[01:03:30] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:03:35] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:03:40] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:03:45] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:03:50] of around thirty thousand to one hundred thousand tokens.
+[01:03:55] Training large language models requires enormous computational resources. Models with billions
+[01:04:00] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:04:05] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:04:10] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:04:15] memory by recomputing activations during the backward pass instead of storing them.
+[01:04:20] The training objective for language models is next-token prediction. The model is trained to
+[01:04:25] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:04:30] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:04:35] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:04:40] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:04:45] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:04:50] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:04:55] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:05:00] as more helpful, harmless, and honest.
+[01:05:05] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:05:10] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:05:15] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:05:20] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:05:25] large model, achieving significant speedups for autoregressive generation.
+[01:05:30] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:05:35] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:05:40] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:05:45] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:05:50] of the original model performance while cutting memory requirements by four times.
+[01:05:55] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:06:00] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:06:05] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:06:10] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:06:15] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:06:20] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:06:25] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:06:30] alongside the user query. This allows models to access up-to-date information without retraining
+[01:06:35] and reduces hallucination by grounding responses in retrieved evidence.
+[01:06:40] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:06:45] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:06:50] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:06:55] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:07:00] models based on human pairwise preferences across diverse tasks.
+[01:07:05] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:07:10] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:07:15] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:07:20] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:07:25] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:07:30] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:07:35] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:07:40] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:07:45] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:07:50] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:07:55] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:08:00] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:08:05] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:08:10] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:08:15] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:08:20] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:08:25] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:08:30] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:08:35] relationships across the entire sequence regardless of distance.
+[01:08:40] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:08:45] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:08:50] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:08:55] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:09:00] representational capacity than a single attention operation could provide.
+[01:09:05] Positional encodings are added to token embeddings to inject information about position. The
+[01:09:10] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:09:15] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:09:20] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:09:25] because they generalize well to sequence lengths beyond those seen during training.
+[01:09:30] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:09:35] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:09:40] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:09:45] large language models. Residual connections allow gradients to flow directly through the
+[01:09:50] network during backpropagation, enabling training of very deep models.
+[01:09:55] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:10:00] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:10:05] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:10:10] This change was found to improve performance across a wide range of tasks.
+[01:10:15] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:10:20] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:10:25] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:10:30] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:10:35] of around thirty thousand to one hundred thousand tokens.
+[01:10:40] Training large language models requires enormous computational resources. Models with billions
+[01:10:45] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:10:50] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:10:55] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:11:00] memory by recomputing activations during the backward pass instead of storing them.
+[01:11:05] The training objective for language models is next-token prediction. The model is trained to
+[01:11:10] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:11:15] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:11:20] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:11:25] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:11:30] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:11:35] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:11:40] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:11:45] as more helpful, harmless, and honest.
+[01:11:50] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:11:55] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:12:00] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:12:05] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:12:10] large model, achieving significant speedups for autoregressive generation.
+[01:12:15] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:12:20] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:12:25] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:12:30] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:12:35] of the original model performance while cutting memory requirements by four times.
+[01:12:40] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:12:45] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:12:50] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:12:55] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:13:00] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:13:05] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:13:10] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:13:15] alongside the user query. This allows models to access up-to-date information without retraining
+[01:13:20] and reduces hallucination by grounding responses in retrieved evidence.
+[01:13:25] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:13:30] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:13:35] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:13:40] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:13:45] models based on human pairwise preferences across diverse tasks.
+[01:13:50] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:13:55] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:14:00] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:14:05] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:14:10] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:14:15] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:14:20] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:14:25] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:14:30] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:14:35] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:14:40] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:14:45] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:14:50] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:14:55] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:15:00] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:15:05] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:15:10] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:15:15] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:15:20] relationships across the entire sequence regardless of distance.
+[01:15:25] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:15:30] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:15:35] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:15:40] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:15:45] representational capacity than a single attention operation could provide.
+[01:15:50] Positional encodings are added to token embeddings to inject information about position. The
+[01:15:55] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:16:00] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:16:05] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:16:10] because they generalize well to sequence lengths beyond those seen during training.
+[01:16:15] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:16:20] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:16:25] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:16:30] large language models. Residual connections allow gradients to flow directly through the
+[01:16:35] network during backpropagation, enabling training of very deep models.
+[01:16:40] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:16:45] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:16:50] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:16:55] This change was found to improve performance across a wide range of tasks.
+[01:17:00] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:17:05] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:17:10] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:17:15] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:17:20] of around thirty thousand to one hundred thousand tokens.
+[01:17:25] Training large language models requires enormous computational resources. Models with billions
+[01:17:30] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:17:35] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:17:40] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:17:45] memory by recomputing activations during the backward pass instead of storing them.
+[01:17:50] The training objective for language models is next-token prediction. The model is trained to
+[01:17:55] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:18:00] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:18:05] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:18:10] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:18:15] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:18:20] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:18:25] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:18:30] as more helpful, harmless, and honest.
+[01:18:35] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:18:40] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:18:45] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:18:50] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:18:55] large model, achieving significant speedups for autoregressive generation.
+[01:19:00] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:19:05] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:19:10] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:19:15] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:19:20] of the original model performance while cutting memory requirements by four times.
+[01:19:25] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:19:30] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:19:35] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:19:40] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:19:45] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:19:50] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:19:55] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:20:00] alongside the user query. This allows models to access up-to-date information without retraining
+[01:20:05] and reduces hallucination by grounding responses in retrieved evidence.
+[01:20:10] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:20:15] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:20:20] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:20:25] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:20:30] models based on human pairwise preferences across diverse tasks.
+[01:20:35] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:20:40] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:20:45] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:20:50] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:20:55] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:21:00] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:21:05] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:21:10] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:21:15] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:21:20] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:21:25] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:21:30] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:21:35] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:21:40] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:21:45] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:21:50] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:21:55] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:22:00] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:22:05] relationships across the entire sequence regardless of distance.
+[01:22:10] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:22:15] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:22:20] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:22:25] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:22:30] representational capacity than a single attention operation could provide.
+[01:22:35] Positional encodings are added to token embeddings to inject information about position. The
+[01:22:40] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:22:45] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:22:50] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:22:55] because they generalize well to sequence lengths beyond those seen during training.
+[01:23:00] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:23:05] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:23:10] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:23:15] large language models. Residual connections allow gradients to flow directly through the
+[01:23:20] network during backpropagation, enabling training of very deep models.
+[01:23:25] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:23:30] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:23:35] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:23:40] This change was found to improve performance across a wide range of tasks.
+[01:23:45] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:23:50] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:23:55] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:24:00] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:24:05] of around thirty thousand to one hundred thousand tokens.
+[01:24:10] Training large language models requires enormous computational resources. Models with billions
+[01:24:15] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:24:20] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:24:25] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:24:30] memory by recomputing activations during the backward pass instead of storing them.
+[01:24:35] The training objective for language models is next-token prediction. The model is trained to
+[01:24:40] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:24:45] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:24:50] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:24:55] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:25:00] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:25:05] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:25:10] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:25:15] as more helpful, harmless, and honest.
+[01:25:20] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:25:25] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:25:30] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:25:35] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:25:40] large model, achieving significant speedups for autoregressive generation.
+[01:25:45] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:25:50] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:25:55] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:26:00] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:26:05] of the original model performance while cutting memory requirements by four times.
+[01:26:10] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:26:15] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:26:20] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:26:25] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:26:30] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:26:35] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:26:40] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:26:45] alongside the user query. This allows models to access up-to-date information without retraining
+[01:26:50] and reduces hallucination by grounding responses in retrieved evidence.
+[01:26:55] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:27:00] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:27:05] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:27:10] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:27:15] models based on human pairwise preferences across diverse tasks.
+[01:27:20] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:27:25] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:27:30] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:27:35] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:27:40] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:27:45] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:27:50] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:27:55] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:28:00] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:28:05] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:28:10] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:28:15] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:28:20] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:28:25] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:28:30] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:28:35] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:28:40] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:28:45] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:28:50] relationships across the entire sequence regardless of distance.
+[01:28:55] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:29:00] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:29:05] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:29:10] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:29:15] representational capacity than a single attention operation could provide.
+[01:29:20] Positional encodings are added to token embeddings to inject information about position. The
+[01:29:25] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:29:30] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:29:35] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:29:40] because they generalize well to sequence lengths beyond those seen during training.
+[01:29:45] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:29:50] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:29:55] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:30:00] large language models. Residual connections allow gradients to flow directly through the
+[01:30:05] network during backpropagation, enabling training of very deep models.
+[01:30:10] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:30:15] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:30:20] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:30:25] This change was found to improve performance across a wide range of tasks.
+[01:30:30] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:30:35] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:30:40] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:30:45] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:30:50] of around thirty thousand to one hundred thousand tokens.
+[01:30:55] Training large language models requires enormous computational resources. Models with billions
+[01:31:00] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:31:05] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:31:10] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:31:15] memory by recomputing activations during the backward pass instead of storing them.
+[01:31:20] The training objective for language models is next-token prediction. The model is trained to
+[01:31:25] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:31:30] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:31:35] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:31:40] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:31:45] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:31:50] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:31:55] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:32:00] as more helpful, harmless, and honest.
+[01:32:05] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:32:10] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:32:15] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:32:20] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:32:25] large model, achieving significant speedups for autoregressive generation.
+[01:32:30] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:32:35] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:32:40] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:32:45] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:32:50] of the original model performance while cutting memory requirements by four times.
+[01:32:55] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:33:00] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:33:05] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:33:10] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:33:15] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:33:20] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:33:25] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:33:30] alongside the user query. This allows models to access up-to-date information without retraining
+[01:33:35] and reduces hallucination by grounding responses in retrieved evidence.
+[01:33:40] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:33:45] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:33:50] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:33:55] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:34:00] models based on human pairwise preferences across diverse tasks.
+[01:34:05] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:34:10] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:34:15] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:34:20] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:34:25] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:34:30] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:34:35] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:34:40] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:34:45] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:34:50] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:34:55] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:35:00] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:35:05] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:35:10] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:35:15] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:35:20] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:35:25] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:35:30] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:35:35] relationships across the entire sequence regardless of distance.
+[01:35:40] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:35:45] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:35:50] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:35:55] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:36:00] representational capacity than a single attention operation could provide.
+[01:36:05] Positional encodings are added to token embeddings to inject information about position. The
+[01:36:10] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:36:15] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:36:20] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:36:25] because they generalize well to sequence lengths beyond those seen during training.
+[01:36:30] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:36:35] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:36:40] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:36:45] large language models. Residual connections allow gradients to flow directly through the
+[01:36:50] network during backpropagation, enabling training of very deep models.
+[01:36:55] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:37:00] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:37:05] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:37:10] This change was found to improve performance across a wide range of tasks.
+[01:37:15] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:37:20] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:37:25] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:37:30] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:37:35] of around thirty thousand to one hundred thousand tokens.
+[01:37:40] Training large language models requires enormous computational resources. Models with billions
+[01:37:45] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:37:50] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:37:55] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:38:00] memory by recomputing activations during the backward pass instead of storing them.
+[01:38:05] The training objective for language models is next-token prediction. The model is trained to
+[01:38:10] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:38:15] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:38:20] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:38:25] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:38:30] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:38:35] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:38:40] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:38:45] as more helpful, harmless, and honest.
+[01:38:50] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:38:55] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:39:00] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:39:05] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:39:10] large model, achieving significant speedups for autoregressive generation.
+[01:39:15] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:39:20] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:39:25] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:39:30] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:39:35] of the original model performance while cutting memory requirements by four times.
+[01:39:40] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:39:45] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:39:50] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:39:55] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:40:00] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:40:05] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:40:10] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:40:15] alongside the user query. This allows models to access up-to-date information without retraining
+[01:40:20] and reduces hallucination by grounding responses in retrieved evidence.
+[01:40:25] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:40:30] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:40:35] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:40:40] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:40:45] models based on human pairwise preferences across diverse tasks.
+[01:40:50] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:40:55] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:41:00] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:41:05] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:41:10] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:41:15] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:41:20] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:41:25] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:41:30] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:41:35] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:41:40] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:41:45] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:41:50] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:41:55] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:42:00] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:42:05] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:42:10] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:42:15] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:42:20] relationships across the entire sequence regardless of distance.
+[01:42:25] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:42:30] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:42:35] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:42:40] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:42:45] representational capacity than a single attention operation could provide.
+[01:42:50] Positional encodings are added to token embeddings to inject information about position. The
+[01:42:55] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:43:00] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:43:05] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:43:10] because they generalize well to sequence lengths beyond those seen during training.
+[01:43:15] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:43:20] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:43:25] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:43:30] large language models. Residual connections allow gradients to flow directly through the
+[01:43:35] network during backpropagation, enabling training of very deep models.
+[01:43:40] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:43:45] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:43:50] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:43:55] This change was found to improve performance across a wide range of tasks.
+[01:44:00] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:44:05] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:44:10] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:44:15] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:44:20] of around thirty thousand to one hundred thousand tokens.
+[01:44:25] Training large language models requires enormous computational resources. Models with billions
+[01:44:30] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:44:35] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:44:40] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:44:45] memory by recomputing activations during the backward pass instead of storing them.
+[01:44:50] The training objective for language models is next-token prediction. The model is trained to
+[01:44:55] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:45:00] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:45:05] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:45:10] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:45:15] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:45:20] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:45:25] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:45:30] as more helpful, harmless, and honest.
+[01:45:35] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:45:40] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:45:45] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:45:50] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:45:55] large model, achieving significant speedups for autoregressive generation.
+[01:46:00] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:46:05] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:46:10] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:46:15] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:46:20] of the original model performance while cutting memory requirements by four times.
+[01:46:25] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:46:30] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:46:35] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:46:40] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:46:45] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:46:50] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:46:55] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:47:00] alongside the user query. This allows models to access up-to-date information without retraining
+[01:47:05] and reduces hallucination by grounding responses in retrieved evidence.
+[01:47:10] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:47:15] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:47:20] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:47:25] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:47:30] models based on human pairwise preferences across diverse tasks.
+[01:47:35] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:47:40] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:47:45] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:47:50] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:47:55] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:48:00] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:48:05] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:48:10] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:48:15] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:48:20] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:48:25] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:48:30] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:48:35] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:48:40] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:48:45] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:48:50] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:48:55] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:49:00] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:49:05] relationships across the entire sequence regardless of distance.
+[01:49:10] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:49:15] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:49:20] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:49:25] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:49:30] representational capacity than a single attention operation could provide.
+[01:49:35] Positional encodings are added to token embeddings to inject information about position. The
+[01:49:40] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:49:45] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:49:50] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:49:55] because they generalize well to sequence lengths beyond those seen during training.
+[01:50:00] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:50:05] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:50:10] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:50:15] large language models. Residual connections allow gradients to flow directly through the
+[01:50:20] network during backpropagation, enabling training of very deep models.
+[01:50:25] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:50:30] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:50:35] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:50:40] This change was found to improve performance across a wide range of tasks.
+[01:50:45] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:50:50] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:50:55] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:51:00] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:51:05] of around thirty thousand to one hundred thousand tokens.
+[01:51:10] Training large language models requires enormous computational resources. Models with billions
+[01:51:15] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:51:20] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:51:25] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:51:30] memory by recomputing activations during the backward pass instead of storing them.
+[01:51:35] The training objective for language models is next-token prediction. The model is trained to
+[01:51:40] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:51:45] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:51:50] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:51:55] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:52:00] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:52:05] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:52:10] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:52:15] as more helpful, harmless, and honest.
+[01:52:20] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:52:25] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:52:30] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:52:35] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:52:40] large model, achieving significant speedups for autoregressive generation.
+[01:52:45] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:52:50] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:52:55] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:53:00] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:53:05] of the original model performance while cutting memory requirements by four times.
+[01:53:10] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[01:53:15] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[01:53:20] and linear attention approximate the full attention mechanism at lower computational cost.
+[01:53:25] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[01:53:30] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[01:53:35] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[01:53:40] time, relevant documents are retrieved from a large corpus and included in the context window
+[01:53:45] alongside the user query. This allows models to access up-to-date information without retraining
+[01:53:50] and reduces hallucination by grounding responses in retrieved evidence.
+[01:53:55] Evaluation of language models is challenging because the space of possible outputs is vast and
+[01:54:00] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[01:54:05] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[01:54:10] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[01:54:15] models based on human pairwise preferences across diverse tasks.
+[01:54:20] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[01:54:25] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[01:54:30] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[01:54:35] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[01:54:40] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[01:54:45] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[01:54:50] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[01:54:55] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[01:55:00] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[01:55:05] vocabulary size, context length limitations, and inference optimization techniques such as
+[01:55:10] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[01:55:15] understanding of how modern language models work under the hood and how to apply them effectively.
+[01:55:20] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[01:55:25] that process tokens sequentially, attention allows every token to directly attend to every other
+[01:55:30] token in the sequence. The attention score between two tokens is computed as the dot product of
+[01:55:35] their query and key vectors, scaled by the square root of the dimension, then passed through
+[01:55:40] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[01:55:45] sum of value vectors. The result is a context-aware representation for each token that captures
+[01:55:50] relationships across the entire sequence regardless of distance.
+[01:55:55] Multi-head attention runs several attention operations in parallel with different learned projections.
+[01:56:00] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[01:56:05] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[01:56:10] are concatenated and projected back to the model dimension. This gives the model much richer
+[01:56:15] representational capacity than a single attention operation could provide.
+[01:56:20] Positional encodings are added to token embeddings to inject information about position. The
+[01:56:25] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[01:56:30] Later work explored learned positional embeddings, relative position encodings, and rotary
+[01:56:35] position embeddings. Rotary encodings have become the dominant approach in modern models
+[01:56:40] because they generalize well to sequence lengths beyond those seen during training.
+[01:56:45] Layer normalization stabilizes training by normalizing the activations within each layer.
+[01:56:50] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[01:56:55] sublayers rather than after, have been found to train more stably and are used in most modern
+[01:57:00] large language models. Residual connections allow gradients to flow directly through the
+[01:57:05] network during backpropagation, enabling training of very deep models.
+[01:57:10] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[01:57:15] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[01:57:20] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[01:57:25] This change was found to improve performance across a wide range of tasks.
+[01:57:30] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[01:57:35] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[01:57:40] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[01:57:45] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[01:57:50] of around thirty thousand to one hundred thousand tokens.
+[01:57:55] Training large language models requires enormous computational resources. Models with billions
+[01:58:00] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[01:58:05] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[01:58:10] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[01:58:15] memory by recomputing activations during the backward pass instead of storing them.
+[01:58:20] The training objective for language models is next-token prediction. The model is trained to
+[01:58:25] maximize the log probability of the next token given all preceding tokens. This deceptively
+[01:58:30] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[01:58:35] and surprising capabilities including reasoning, code generation, and instruction following.
+[01:58:40] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[01:58:45] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[01:58:50] Reinforcement learning from human feedback further aligns the model by training a reward model
+[01:58:55] on human preference data and using it to guide the policy model toward outputs that humans rate
+[01:59:00] as more helpful, harmless, and honest.
+[01:59:05] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[01:59:10] stores the key and value tensors from the attention mechanism so they do not need to be
+[01:59:15] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[01:59:20] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[01:59:25] large model, achieving significant speedups for autoregressive generation.
+[01:59:30] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[01:59:35] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[01:59:40] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[01:59:45] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[01:59:50] of the original model performance while cutting memory requirements by four times.
+[01:59:55] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:00:00] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:00:05] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:00:10] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:00:15] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:00:20] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:00:25] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:00:30] alongside the user query. This allows models to access up-to-date information without retraining
+[02:00:35] and reduces hallucination by grounding responses in retrieved evidence.
+[02:00:40] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:00:45] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:00:50] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:00:55] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:01:00] models based on human pairwise preferences across diverse tasks.
+[02:01:05] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:01:10] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:01:15] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:01:20] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:01:25] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[02:01:30] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[02:01:35] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[02:01:40] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[02:01:45] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[02:01:50] vocabulary size, context length limitations, and inference optimization techniques such as
+[02:01:55] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[02:02:00] understanding of how modern language models work under the hood and how to apply them effectively.
+[02:02:05] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[02:02:10] that process tokens sequentially, attention allows every token to directly attend to every other
+[02:02:15] token in the sequence. The attention score between two tokens is computed as the dot product of
+[02:02:20] their query and key vectors, scaled by the square root of the dimension, then passed through
+[02:02:25] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[02:02:30] sum of value vectors. The result is a context-aware representation for each token that captures
+[02:02:35] relationships across the entire sequence regardless of distance.
+[02:02:40] Multi-head attention runs several attention operations in parallel with different learned projections.
+[02:02:45] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[02:02:50] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[02:02:55] are concatenated and projected back to the model dimension. This gives the model much richer
+[02:03:00] representational capacity than a single attention operation could provide.
+[02:03:05] Positional encodings are added to token embeddings to inject information about position. The
+[02:03:10] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[02:03:15] Later work explored learned positional embeddings, relative position encodings, and rotary
+[02:03:20] position embeddings. Rotary encodings have become the dominant approach in modern models
+[02:03:25] because they generalize well to sequence lengths beyond those seen during training.
+[02:03:30] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:03:35] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:03:40] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:03:45] large language models. Residual connections allow gradients to flow directly through the
+[02:03:50] network during backpropagation, enabling training of very deep models.
+[02:03:55] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:04:00] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:04:05] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:04:10] This change was found to improve performance across a wide range of tasks.
+[02:04:15] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:04:20] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:04:25] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[02:04:30] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[02:04:35] of around thirty thousand to one hundred thousand tokens.
+[02:04:40] Training large language models requires enormous computational resources. Models with billions
+[02:04:45] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[02:04:50] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[02:04:55] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[02:05:00] memory by recomputing activations during the backward pass instead of storing them.
+[02:05:05] The training objective for language models is next-token prediction. The model is trained to
+[02:05:10] maximize the log probability of the next token given all preceding tokens. This deceptively
+[02:05:15] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[02:05:20] and surprising capabilities including reasoning, code generation, and instruction following.
+[02:05:25] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[02:05:30] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[02:05:35] Reinforcement learning from human feedback further aligns the model by training a reward model
+[02:05:40] on human preference data and using it to guide the policy model toward outputs that humans rate
+[02:05:45] as more helpful, harmless, and honest.
+[02:05:50] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[02:05:55] stores the key and value tensors from the attention mechanism so they do not need to be
+[02:06:00] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[02:06:05] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[02:06:10] large model, achieving significant speedups for autoregressive generation.
+[02:06:15] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[02:06:20] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[02:06:25] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[02:06:30] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[02:06:35] of the original model performance while cutting memory requirements by four times.
+[02:06:40] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:06:45] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:06:50] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:06:55] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:07:00] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:07:05] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:07:10] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:07:15] alongside the user query. This allows models to access up-to-date information without retraining
+[02:07:20] and reduces hallucination by grounding responses in retrieved evidence.
+[02:07:25] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:07:30] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:07:35] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:07:40] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:07:45] models based on human pairwise preferences across diverse tasks.
+[02:07:50] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:07:55] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:08:00] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:08:05] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:08:10] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[02:08:15] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[02:08:20] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[02:08:25] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[02:08:30] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[02:08:35] vocabulary size, context length limitations, and inference optimization techniques such as
+[02:08:40] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[02:08:45] understanding of how modern language models work under the hood and how to apply them effectively.
+[02:08:50] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[02:08:55] that process tokens sequentially, attention allows every token to directly attend to every other
+[02:09:00] token in the sequence. The attention score between two tokens is computed as the dot product of
+[02:09:05] their query and key vectors, scaled by the square root of the dimension, then passed through
+[02:09:10] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[02:09:15] sum of value vectors. The result is a context-aware representation for each token that captures
+[02:09:20] relationships across the entire sequence regardless of distance.
+[02:09:25] Multi-head attention runs several attention operations in parallel with different learned projections.
+[02:09:30] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[02:09:35] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[02:09:40] are concatenated and projected back to the model dimension. This gives the model much richer
+[02:09:45] representational capacity than a single attention operation could provide.
+[02:09:50] Positional encodings are added to token embeddings to inject information about position. The
+[02:09:55] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[02:10:00] Later work explored learned positional embeddings, relative position encodings, and rotary
+[02:10:05] position embeddings. Rotary encodings have become the dominant approach in modern models
+[02:10:10] because they generalize well to sequence lengths beyond those seen during training.
+[02:10:15] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:10:20] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:10:25] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:10:30] large language models. Residual connections allow gradients to flow directly through the
+[02:10:35] network during backpropagation, enabling training of very deep models.
+[02:10:40] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:10:45] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:10:50] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:10:55] This change was found to improve performance across a wide range of tasks.
+[02:11:00] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:11:05] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:11:10] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[02:11:15] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[02:11:20] of around thirty thousand to one hundred thousand tokens.
+[02:11:25] Training large language models requires enormous computational resources. Models with billions
+[02:11:30] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[02:11:35] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[02:11:40] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[02:11:45] memory by recomputing activations during the backward pass instead of storing them.
+[02:11:50] The training objective for language models is next-token prediction. The model is trained to
+[02:11:55] maximize the log probability of the next token given all preceding tokens. This deceptively
+[02:12:00] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[02:12:05] and surprising capabilities including reasoning, code generation, and instruction following.
+[02:12:10] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[02:12:15] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[02:12:20] Reinforcement learning from human feedback further aligns the model by training a reward model
+[02:12:25] on human preference data and using it to guide the policy model toward outputs that humans rate
+[02:12:30] as more helpful, harmless, and honest.
+[02:12:35] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[02:12:40] stores the key and value tensors from the attention mechanism so they do not need to be
+[02:12:45] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[02:12:50] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[02:12:55] large model, achieving significant speedups for autoregressive generation.
+[02:13:00] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[02:13:05] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[02:13:10] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[02:13:15] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[02:13:20] of the original model performance while cutting memory requirements by four times.
+[02:13:25] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:13:30] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:13:35] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:13:40] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:13:45] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:13:50] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:13:55] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:14:00] alongside the user query. This allows models to access up-to-date information without retraining
+[02:14:05] and reduces hallucination by grounding responses in retrieved evidence.
+[02:14:10] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:14:15] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:14:20] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:14:25] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:14:30] models based on human pairwise preferences across diverse tasks.
+[02:14:35] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:14:40] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:14:45] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:14:50] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:14:55] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[02:15:00] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[02:15:05] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[02:15:10] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[02:15:15] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[02:15:20] vocabulary size, context length limitations, and inference optimization techniques such as
+[02:15:25] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[02:15:30] understanding of how modern language models work under the hood and how to apply them effectively.
+[02:15:35] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[02:15:40] that process tokens sequentially, attention allows every token to directly attend to every other
+[02:15:45] token in the sequence. The attention score between two tokens is computed as the dot product of
+[02:15:50] their query and key vectors, scaled by the square root of the dimension, then passed through
+[02:15:55] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[02:16:00] sum of value vectors. The result is a context-aware representation for each token that captures
+[02:16:05] relationships across the entire sequence regardless of distance.
+[02:16:10] Multi-head attention runs several attention operations in parallel with different learned projections.
+[02:16:15] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[02:16:20] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[02:16:25] are concatenated and projected back to the model dimension. This gives the model much richer
+[02:16:30] representational capacity than a single attention operation could provide.
+[02:16:35] Positional encodings are added to token embeddings to inject information about position. The
+[02:16:40] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[02:16:45] Later work explored learned positional embeddings, relative position encodings, and rotary
+[02:16:50] position embeddings. Rotary encodings have become the dominant approach in modern models
+[02:16:55] because they generalize well to sequence lengths beyond those seen during training.
+[02:17:00] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:17:05] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:17:10] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:17:15] large language models. Residual connections allow gradients to flow directly through the
+[02:17:20] network during backpropagation, enabling training of very deep models.
+[02:17:25] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:17:30] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:17:35] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:17:40] This change was found to improve performance across a wide range of tasks.
+[02:17:45] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:17:50] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:17:55] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[02:18:00] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[02:18:05] of around thirty thousand to one hundred thousand tokens.
+[02:18:10] Training large language models requires enormous computational resources. Models with billions
+[02:18:15] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[02:18:20] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[02:18:25] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[02:18:30] memory by recomputing activations during the backward pass instead of storing them.
+[02:18:35] The training objective for language models is next-token prediction. The model is trained to
+[02:18:40] maximize the log probability of the next token given all preceding tokens. This deceptively
+[02:18:45] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[02:18:50] and surprising capabilities including reasoning, code generation, and instruction following.
+[02:18:55] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[02:19:00] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[02:19:05] Reinforcement learning from human feedback further aligns the model by training a reward model
+[02:19:10] on human preference data and using it to guide the policy model toward outputs that humans rate
+[02:19:15] as more helpful, harmless, and honest.
+[02:19:20] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[02:19:25] stores the key and value tensors from the attention mechanism so they do not need to be
+[02:19:30] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[02:19:35] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[02:19:40] large model, achieving significant speedups for autoregressive generation.
+[02:19:45] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[02:19:50] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[02:19:55] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[02:20:00] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[02:20:05] of the original model performance while cutting memory requirements by four times.
+[02:20:10] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:20:15] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:20:20] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:20:25] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:20:30] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:20:35] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:20:40] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:20:45] alongside the user query. This allows models to access up-to-date information without retraining
+[02:20:50] and reduces hallucination by grounding responses in retrieved evidence.
+[02:20:55] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:21:00] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:21:05] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:21:10] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:21:15] models based on human pairwise preferences across diverse tasks.
+[02:21:20] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:21:25] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:21:30] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:21:35] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:21:40] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[02:21:45] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[02:21:50] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[02:21:55] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[02:22:00] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[02:22:05] vocabulary size, context length limitations, and inference optimization techniques such as
+[02:22:10] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[02:22:15] understanding of how modern language models work under the hood and how to apply them effectively.
+[02:22:20] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[02:22:25] that process tokens sequentially, attention allows every token to directly attend to every other
+[02:22:30] token in the sequence. The attention score between two tokens is computed as the dot product of
+[02:22:35] their query and key vectors, scaled by the square root of the dimension, then passed through
+[02:22:40] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[02:22:45] sum of value vectors. The result is a context-aware representation for each token that captures
+[02:22:50] relationships across the entire sequence regardless of distance.
+[02:22:55] Multi-head attention runs several attention operations in parallel with different learned projections.
+[02:23:00] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[02:23:05] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[02:23:10] are concatenated and projected back to the model dimension. This gives the model much richer
+[02:23:15] representational capacity than a single attention operation could provide.
+[02:23:20] Positional encodings are added to token embeddings to inject information about position. The
+[02:23:25] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[02:23:30] Later work explored learned positional embeddings, relative position encodings, and rotary
+[02:23:35] position embeddings. Rotary encodings have become the dominant approach in modern models
+[02:23:40] because they generalize well to sequence lengths beyond those seen during training.
+[02:23:45] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:23:50] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:23:55] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:24:00] large language models. Residual connections allow gradients to flow directly through the
+[02:24:05] network during backpropagation, enabling training of very deep models.
+[02:24:10] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:24:15] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:24:20] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:24:25] This change was found to improve performance across a wide range of tasks.
+[02:24:30] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:24:35] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:24:40] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[02:24:45] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[02:24:50] of around thirty thousand to one hundred thousand tokens.
+[02:24:55] Training large language models requires enormous computational resources. Models with billions
+[02:25:00] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[02:25:05] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[02:25:10] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[02:25:15] memory by recomputing activations during the backward pass instead of storing them.
+[02:25:20] The training objective for language models is next-token prediction. The model is trained to
+[02:25:25] maximize the log probability of the next token given all preceding tokens. This deceptively
+[02:25:30] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[02:25:35] and surprising capabilities including reasoning, code generation, and instruction following.
+[02:25:40] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[02:25:45] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[02:25:50] Reinforcement learning from human feedback further aligns the model by training a reward model
+[02:25:55] on human preference data and using it to guide the policy model toward outputs that humans rate
+[02:26:00] as more helpful, harmless, and honest.
+[02:26:05] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[02:26:10] stores the key and value tensors from the attention mechanism so they do not need to be
+[02:26:15] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[02:26:20] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[02:26:25] large model, achieving significant speedups for autoregressive generation.
+[02:26:30] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[02:26:35] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[02:26:40] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[02:26:45] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[02:26:50] of the original model performance while cutting memory requirements by four times.
+[02:26:55] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:27:00] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:27:05] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:27:10] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:27:15] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:27:20] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:27:25] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:27:30] alongside the user query. This allows models to access up-to-date information without retraining
+[02:27:35] and reduces hallucination by grounding responses in retrieved evidence.
+[02:27:40] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:27:45] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:27:50] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:27:55] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:28:00] models based on human pairwise preferences across diverse tasks.
+[02:28:05] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:28:10] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:28:15] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:28:20] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:28:25] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[02:28:30] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[02:28:35] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[02:28:40] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[02:28:45] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[02:28:50] vocabulary size, context length limitations, and inference optimization techniques such as
+[02:28:55] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[02:29:00] understanding of how modern language models work under the hood and how to apply them effectively.
+[02:29:05] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[02:29:10] that process tokens sequentially, attention allows every token to directly attend to every other
+[02:29:15] token in the sequence. The attention score between two tokens is computed as the dot product of
+[02:29:20] their query and key vectors, scaled by the square root of the dimension, then passed through
+[02:29:25] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[02:29:30] sum of value vectors. The result is a context-aware representation for each token that captures
+[02:29:35] relationships across the entire sequence regardless of distance.
+[02:29:40] Multi-head attention runs several attention operations in parallel with different learned projections.
+[02:29:45] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[02:29:50] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[02:29:55] are concatenated and projected back to the model dimension. This gives the model much richer
+[02:30:00] representational capacity than a single attention operation could provide.
+[02:30:05] Positional encodings are added to token embeddings to inject information about position. The
+[02:30:10] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[02:30:15] Later work explored learned positional embeddings, relative position encodings, and rotary
+[02:30:20] position embeddings. Rotary encodings have become the dominant approach in modern models
+[02:30:25] because they generalize well to sequence lengths beyond those seen during training.
+[02:30:30] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:30:35] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:30:40] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:30:45] large language models. Residual connections allow gradients to flow directly through the
+[02:30:50] network during backpropagation, enabling training of very deep models.
+[02:30:55] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:31:00] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:31:05] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:31:10] This change was found to improve performance across a wide range of tasks.
+[02:31:15] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:31:20] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:31:25] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[02:31:30] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[02:31:35] of around thirty thousand to one hundred thousand tokens.
+[02:31:40] Training large language models requires enormous computational resources. Models with billions
+[02:31:45] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[02:31:50] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[02:31:55] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[02:32:00] memory by recomputing activations during the backward pass instead of storing them.
+[02:32:05] The training objective for language models is next-token prediction. The model is trained to
+[02:32:10] maximize the log probability of the next token given all preceding tokens. This deceptively
+[02:32:15] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[02:32:20] and surprising capabilities including reasoning, code generation, and instruction following.
+[02:32:25] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[02:32:30] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[02:32:35] Reinforcement learning from human feedback further aligns the model by training a reward model
+[02:32:40] on human preference data and using it to guide the policy model toward outputs that humans rate
+[02:32:45] as more helpful, harmless, and honest.
+[02:32:50] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[02:32:55] stores the key and value tensors from the attention mechanism so they do not need to be
+[02:33:00] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[02:33:05] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[02:33:10] large model, achieving significant speedups for autoregressive generation.
+[02:33:15] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[02:33:20] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[02:33:25] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[02:33:30] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[02:33:35] of the original model performance while cutting memory requirements by four times.
+[02:33:40] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:33:45] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:33:50] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:33:55] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:34:00] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:34:05] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:34:10] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:34:15] alongside the user query. This allows models to access up-to-date information without retraining
+[02:34:20] and reduces hallucination by grounding responses in retrieved evidence.
+[02:34:25] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:34:30] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:34:35] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:34:40] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:34:45] models based on human pairwise preferences across diverse tasks.
+[02:34:50] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:34:55] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:35:00] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:35:05] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:35:10] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.
+[02:35:15] Welcome to this comprehensive deep dive into transformer architectures and large language models.
+[02:35:20] In this lecture we will cover attention mechanisms, positional encodings, multi-head attention,
+[02:35:25] feed-forward sublayers, layer normalization, residual connections, and the training dynamics
+[02:35:30] that make these models so powerful. We will also discuss practical considerations like tokenization,
+[02:35:35] vocabulary size, context length limitations, and inference optimization techniques such as
+[02:35:40] key-value caching and speculative decoding. By the end of this session you will have a thorough
+[02:35:45] understanding of how modern language models work under the hood and how to apply them effectively.
+[02:35:50] The attention mechanism is the core innovation of the transformer. Unlike recurrent networks
+[02:35:55] that process tokens sequentially, attention allows every token to directly attend to every other
+[02:36:00] token in the sequence. The attention score between two tokens is computed as the dot product of
+[02:36:05] their query and key vectors, scaled by the square root of the dimension, then passed through
+[02:36:10] a softmax to produce a probability distribution. This distribution is used to compute a weighted
+[02:36:15] sum of value vectors. The result is a context-aware representation for each token that captures
+[02:36:20] relationships across the entire sequence regardless of distance.
+[02:36:25] Multi-head attention runs several attention operations in parallel with different learned projections.
+[02:36:30] Each head can specialize in different types of relationships. Some heads learn syntactic dependencies,
+[02:36:35] others learn semantic associations, and others capture positional patterns. The outputs of all heads
+[02:36:40] are concatenated and projected back to the model dimension. This gives the model much richer
+[02:36:45] representational capacity than a single attention operation could provide.
+[02:36:50] Positional encodings are added to token embeddings to inject information about position. The
+[02:36:55] original transformer used sinusoidal encodings with different frequencies for each dimension.
+[02:37:00] Later work explored learned positional embeddings, relative position encodings, and rotary
+[02:37:05] position embeddings. Rotary encodings have become the dominant approach in modern models
+[02:37:10] because they generalize well to sequence lengths beyond those seen during training.
+[02:37:15] Layer normalization stabilizes training by normalizing the activations within each layer.
+[02:37:20] Pre-norm architectures, where layer norm is applied before the attention and feed-forward
+[02:37:25] sublayers rather than after, have been found to train more stably and are used in most modern
+[02:37:30] large language models. Residual connections allow gradients to flow directly through the
+[02:37:35] network during backpropagation, enabling training of very deep models.
+[02:37:40] The feed-forward sublayer consists of two linear transformations with a non-linearity in between.
+[02:37:45] The inner dimension is typically four times the model dimension. Modern models use the SwiGLU
+[02:37:50] activation function, which is a variant of the gated linear unit, instead of the original ReLU.
+[02:37:55] This change was found to improve performance across a wide range of tasks.
+[02:38:00] Tokenization converts raw text into a sequence of integer indices that the model can process.
+[02:38:05] Byte pair encoding is the most common tokenization algorithm. It starts with individual characters
+[02:38:10] and iteratively merges the most frequent adjacent pairs to build a vocabulary of subword units.
+[02:38:15] This balances vocabulary coverage with sequence length. Typical modern models use vocabularies
+[02:38:20] of around thirty thousand to one hundred thousand tokens.
+[02:38:25] Training large language models requires enormous computational resources. Models with billions
+[02:38:30] of parameters are trained on trillions of tokens using hundreds or thousands of GPUs. Mixed
+[02:38:35] precision training uses 16-bit floating point for most computations and 32-bit for weight updates
+[02:38:40] to reduce memory usage and increase throughput. Gradient checkpointing trades compute for
+[02:38:45] memory by recomputing activations during the backward pass instead of storing them.
+[02:38:50] The training objective for language models is next-token prediction. The model is trained to
+[02:38:55] maximize the log probability of the next token given all preceding tokens. This deceptively
+[02:39:00] simple objective, when applied at massive scale, leads to models that acquire broad knowledge
+[02:39:05] and surprising capabilities including reasoning, code generation, and instruction following.
+[02:39:10] Instruction tuning is a fine-tuning procedure that teaches models to follow user instructions.
+[02:39:15] A dataset of instruction-response pairs is collected and the model is fine-tuned on these examples.
+[02:39:20] Reinforcement learning from human feedback further aligns the model by training a reward model
+[02:39:25] on human preference data and using it to guide the policy model toward outputs that humans rate
+[02:39:30] as more helpful, harmless, and honest.
+[02:39:35] Inference optimization is critical for deploying large models efficiently. Key-value caching
+[02:39:40] stores the key and value tensors from the attention mechanism so they do not need to be
+[02:39:45] recomputed for tokens that have already been processed. Speculative decoding uses a small
+[02:39:50] draft model to generate multiple candidate tokens and then verifies them in parallel with the
+[02:39:55] large model, achieving significant speedups for autoregressive generation.
+[02:40:00] Quantization reduces the precision of model weights from 32-bit or 16-bit floating point to
+[02:40:05] 8-bit integers or lower. This reduces memory footprint and can increase throughput on hardware
+[02:40:10] that supports integer arithmetic. Techniques like GPTQ and AWQ perform weight quantization
+[02:40:15] while preserving model quality. 4-bit quantization with careful calibration can retain most
+[02:40:20] of the original model performance while cutting memory requirements by four times.
+[02:40:25] Context length is a fundamental limitation of transformer models due to the quadratic scaling
+[02:40:30] of attention with sequence length. Techniques like sliding window attention, sparse attention,
+[02:40:35] and linear attention approximate the full attention mechanism at lower computational cost.
+[02:40:40] Flash attention is a hardware-aware implementation that significantly reduces memory usage
+[02:40:45] and speeds up attention computation by tiling the operation to fit in GPU on-chip memory.
+[02:40:50] Retrieval augmented generation combines a language model with a retrieval system. At inference
+[02:40:55] time, relevant documents are retrieved from a large corpus and included in the context window
+[02:41:00] alongside the user query. This allows models to access up-to-date information without retraining
+[02:41:05] and reduces hallucination by grounding responses in retrieved evidence.
+[02:41:10] Evaluation of language models is challenging because the space of possible outputs is vast and
+[02:41:15] quality is often subjective. Automatic benchmarks like MMLU, HellaSwag, and HumanEval measure
+[02:41:20] specific capabilities. Human evaluation through preference comparisons or ratings provides a
+[02:41:25] more holistic assessment. The ELO rating system borrowed from chess has been adapted to rank
+[02:41:30] models based on human pairwise preferences across diverse tasks.
+[02:41:35] Fine-tuning on domain-specific data is an effective way to improve model performance on
+[02:41:40] specialized tasks. Parameter efficient fine-tuning methods like LoRA and prefix tuning reduce
+[02:41:45] the cost of adaptation by only training a small number of additional parameters. LoRA adds
+[02:41:50] low-rank decomposition matrices to weight matrices and only trains these additions, leaving
+[02:41:55] the original weights frozen. This can match full fine-tuning quality at a fraction of the cost.

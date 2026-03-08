@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 function KeyIcon() {
   return (
@@ -36,6 +36,17 @@ function EyeIcon({ open }) {
 
 export default function Sidebar({ apiKey, onApiKeyChange }) {
   const [showKey, setShowKey] = useState(false)
+  const [hasServerKey, setHasServerKey] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((data) => setHasServerKey(!!data.has_server_key))
+      .catch(() => {})
+  }, [])
+
+  // Server key is active when .env has a key and no local override is entered
+  const serverKeyActive = hasServerKey && !apiKey
 
   return (
     <aside className="w-72 min-w-[18rem] bg-white border-r border-gray-100 flex flex-col p-6 gap-5 shadow-sm">
@@ -50,35 +61,46 @@ export default function Sidebar({ apiKey, onApiKeyChange }) {
           Google API Key
         </label>
 
-        <div className="relative">
-          <input
-            type={showKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(e) => onApiKeyChange(e.target.value)}
-            placeholder="Enter your API key"
-            spellCheck={false}
-            className="w-full px-3 py-2 pr-9 text-sm border border-gray-200 rounded-lg bg-slate-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition"
-          />
-          <button
-            type="button"
-            onClick={() => setShowKey((v) => !v)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-            aria-label={showKey ? 'Hide key' : 'Show key'}
-          >
-            <EyeIcon open={showKey} />
-          </button>
-        </div>
+        {serverKeyActive ? (
+          <div className="flex items-center px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg">
+            <span className="flex-1 text-sm tracking-widest text-gray-400 select-none">
+              ••••••••••••••••
+            </span>
+            <span className="text-xs text-emerald-600 font-medium ml-2 whitespace-nowrap">from .env</span>
+          </div>
+        ) : (
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => onApiKeyChange(e.target.value)}
+              placeholder="Enter your API key"
+              spellCheck={false}
+              className="w-full px-3 py-2 pr-9 text-sm border border-gray-200 rounded-lg bg-slate-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((v) => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+              aria-label={showKey ? 'Hide key' : 'Show key'}
+            >
+              <EyeIcon open={showKey} />
+            </button>
+          </div>
+        )}
 
         <p className="text-xs text-gray-400 leading-relaxed">
-          Your API key is stored locally and never sent to our servers.
+          {serverKeyActive
+            ? 'A key is configured on the server. Enter one here to override it.'
+            : 'Your API key is stored locally and never sent to our servers.'}
         </p>
       </div>
 
       {/* Key status indicator */}
-      {apiKey && (
+      {(apiKey || serverKeyActive) && (
         <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          API key saved
+          {serverKeyActive ? 'Server key active' : 'API key saved'}
         </div>
       )}
 

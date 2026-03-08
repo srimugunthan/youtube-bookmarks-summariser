@@ -19,120 +19,64 @@ Accepts a YouTube playlist URL or a bookmarks file (XML, JSON, TXT), fetches tra
 │   └────────┬─────────┘   └────────┬──────────┘   └──────────┬───────────┘  │
 │            │  HTTP + SSE          │  FastAPI                 │ asyncio.run  │
 └────────────┼──────────────────────┼──────────────────────────┼─────────────┘
-             │                      │                          │
              └──────────────────────▼──────────────────────────┘
                                     │
                          ┌──────────▼──────────┐
                          │    pipeline.py       │
-                         │  (composition root)  │
+                         │  Phase A: fetch +    │
+                         │  estimate + confirm  │
+                         │  Phase B: summarize  │
+                         │  + synthesize        │
                          └──────────┬───────────┘
                                     │
               ┌─────────────────────┼──────────────────────┐
               │                     │                      │
    ┌──────────▼──────────┐          │           ┌──────────▼──────────┐
    │   URL Extractor      │          │           │   SQLite DB          │
-   │  (no LLM)            │          │           │  jobs               │
-   │                      │          │           │  video_progress     │
-   │  xml_extractor.py    │          │           │  token_usage        │
-   │  json_extractor.py   │          │           └─────────────────────┘
-   │  txt_extractor.py    │          │
-   │  playlist_extractor  │          │
-   │  (yt-dlp)            │          │
-   └──────────┬───────────┘          │
-              │ VideoMeta[]          │
+   │  xml / json / txt /  │          │           │  jobs               │
+   │  playlist (yt-dlp)   │          │           │  video_progress     │
+   └──────────┬───────────┘          │           │  token_usage        │
+              │ VideoMeta[]          │           └─────────────────────┘
               ▼                      │
    ┌──────────────────────┐          │
-   │  Agent 1             │          │
-   │  Transcript          │◄─────────┤
+   │  Agent 1             │◄─────────┤
+   │  Transcript          │          │
    │  Summarizer          │          │
-   │                      │          │
    │  • Fetch transcript  │          │
-   │    (youtube-         │          │
-   │     transcript-api)  │          │
    │  • Disk cache        │          │
    │  • Chunk if > 8k tok │          │
    │  • Gemini Flash      │          │
-   │  • asyncio.Semaphore │          │
-   │    (3 concurrent)    │          │
+   │  • 3 concurrent      │          │
    └──────────┬───────────┘          │
-              │ summaries/           │
-              │ {job_id}/            │
-              │ {video_id}.md        │
               ▼                      │
    ┌──────────────────────┐          │
-   │  Agent 2             │          │
-   │  Synthesis Agent     │◄─────────┘
-   │                      │
-   │  • Read all .md      │
+   │  Agent 2             │◄─────────┘
+   │  Synthesis Agent     │
    │  • Gemini Pro        │
-   │  • Write result.md   │
-   │  • Write             │
-   │    token_report.json │
+   │  • overall_summary   │
+   │  • transcripts.md    │
+   │  • token_report.json │
    └──────────┬───────────┘
-              │
               ▼
-   ┌──────────────────────┐
-   │  output/{job_id}/    │
-   │  ├── result.md       │   ← synthesized article / tutorial / guide
-   │  └── token_report    │   ← per-agent token usage and USD cost
-   │       .json          │
-   └──────────────────────┘
+   output/{job_id}/
+   ├── overall_summary.md
+   ├── transcripts.md
+   └── token_report.json
 ```
 
-### Data flow summary
+### Pipeline phases
+
+The pipeline is split into two phases to allow cost confirmation before any Gemini calls:
 
 ```
-Input
-  └─► URL Extractor ──► VideoMeta[]
-                              │
-                    ┌─────────┘  (per video, async concurrent)
-                    │
-                    ▼
-            YouTube Transcript API
-                    │ raw transcript text
-                    ▼
-            .cache/transcripts/{video_id}.txt   (disk cache)
-                    │
-                    ▼
-            tiktoken: count tokens
-                    │
-              ┌─────┴────────┐
-         ≤ 8k tokens    > 8k tokens
-              │               │
-              ▼               ▼
-        Gemini Flash    chunk → Flash × N
-        (direct)        → merge → Flash
-              │               │
-              └──────┬─────────┘
-                     ▼
-            summaries/{job_id}/{video_id}.md
-                     │
-          (all videos complete)
-                     ▼
-               Gemini Pro
-            (single synthesis call)
-                     │
-                     ▼
-            output/{job_id}/result.md
-            output/{job_id}/token_report.json
+Phase A (free)
+  fetch all transcripts → estimate cost → prompt user to confirm or cancel
+
+Phase B (paid, only if confirmed)
+  summarize each video (Gemini Flash) → synthesize (Gemini Pro)
 ```
 
-### Component map
-
-| Layer | Module | Responsibility |
-|---|---|---|
-| Extractors | `youtubesynth/extractors/` | Parse XML/JSON/TXT/playlist → `VideoMeta[]` |
-| Services | `youtube_service.py` | Fetch + cache transcripts |
-| Services | `gemini_client.py` | Async Gemini wrapper, retry + backoff |
-| Services | `token_tracker.py` | Cost computation, DB ledger |
-| Services | `db.py` | Async SQLite CRUD (aiosqlite) |
-| Agents | `transcript_summarizer.py` | Agent 1 — per-video, Gemini Flash, chunking |
-| Agents | `synthesis_agent.py` | Agent 2 — all summaries → Gemini Pro |
-| Pipeline | `pipeline.py` | Composition root; shared by CLI + API |
-| CLI | `cli.py` | `youtubesynth` console script |
-| API | `api/routes.py` | FastAPI REST endpoints |
-| API | `api/sse.py` | Per-job SSE event queues |
-| Frontend | `frontend/src/` | React 18 + Vite + Tailwind web UI |
+Job status transitions: `pending → fetching → pending_confirmation → running → done / failed / cancelled`
 
 ---
 
@@ -155,13 +99,38 @@ python -m venv .venv
 source .venv/bin/activate        # macOS / Linux
 # .venv\Scripts\activate         # Windows
 
-# Install the package (with dev extras for testing)
+# Install the package with all runtime and dev dependencies
 pip install -e ".[dev]"
 
-# Copy and fill in the environment file
+# Copy the environment template and set your API key
 cp .env.example .env
-# Edit .env — set GEMINI_API_KEY at minimum
+# Edit .env — GEMINI_API_KEY is the only required field
 ```
+
+---
+
+## Configuration (`.env`)
+
+```bash
+# Required
+GEMINI_API_KEY=your_key_here
+
+# Optional — Gemini model names
+GEMINI_MODEL_FLASH=gemini-2.5-flash-lite   # used for per-video summarization
+GEMINI_MODEL_PRO=gemini-2.5-flash           # used for final synthesis
+
+# Optional — storage paths
+DB_PATH=.data/youtubesynth.db
+CACHE_DIR=.cache/transcripts
+OUTPUT_DIR=output
+
+# Optional — limits
+MAX_VIDEOS_PER_JOB=50
+DEFAULT_CONCURRENCY=3
+CHUNK_TOKEN_THRESHOLD=8000
+```
+
+All fields have defaults — only `GEMINI_API_KEY` is needed to run.
 
 ---
 
@@ -169,246 +138,318 @@ cp .env.example .env
 
 ### Option A — Web UI (recommended)
 
-Start the backend and frontend dev server:
+#### Development mode (two terminals)
 
 ```bash
-# Terminal 1: backend
+# Terminal 1 — start the backend
+source .venv/bin/activate
 uvicorn youtubesynth.main:app --reload --port 8000
 
-# Terminal 2: frontend
+# Terminal 2 — start the frontend dev server
 cd frontend
-npm install
+npm install          # first time only
 npm run dev
+# Open http://localhost:3000
 ```
 
-Open **http://localhost:3000**, enter your Gemini API key in the sidebar, then upload a file or paste a playlist URL.
+The Vite dev server proxies all `/api` requests to the backend on port 8000.
+
+#### Production mode (single server)
+
+```bash
+# Build the frontend (output goes to youtubesynth/static/)
+cd frontend && npm run build && cd ..
+
+# Start the backend — it serves the built UI at /
+source .venv/bin/activate
+uvicorn youtubesynth.main:app --port 8000
+# Open http://localhost:8000
+```
+
+#### UI walkthrough
+
+1. **Sidebar** — If `GEMINI_API_KEY` is set in `.env`, the key field shows `•••••••••••••  from .env` and no input is needed. Otherwise enter your key — it is stored in `localStorage` and never sent to the server.
+2. **Upload form** — Choose a `.xml`, `.json`, or `.txt` bookmarks file (drag-and-drop supported) **or** paste a YouTube playlist URL. Set output style, max videos, and an optional title.
+3. **Fetching** — The backend fetches all transcripts and estimates the Gemini cost.
+4. **Cost confirmation modal** — Shows a breakdown table (Summarizer + Synthesis, token counts, USD cost). Click **Proceed** to continue or **Cancel** to abort (no API calls made if cancelled).
+5. **Progress panel** — Real-time per-video rows with ✓ / ✗ icons and token counts as each video is summarized.
+6. **Result view** — Shows token cost stats and two download buttons:
+   - `overall_summary.md` — the synthesized article
+   - `transcripts.md` — all per-video summaries combined
+
+---
 
 ### Option B — CLI
 
 ```bash
-# From a text file (one URL per line)
+# From a text file (one YouTube URL per line)
 youtubesynth --input videos.txt --style article --verbose
 
 # From a YouTube playlist
 youtubesynth --playlist "https://www.youtube.com/playlist?list=PLxxx" --style tutorial
 
-# From an XML bookmarks export
+# From an XML browser bookmarks export
 youtubesynth --input bookmarks.xml --style guide --max-videos 20
 
-# Custom output directory and title
-youtubesynth --input videos.json --title "My ML Guide" --output-dir ./results
+# Custom output directory and title; skip cost prompt
+youtubesynth --input videos.json --title "My ML Guide" --output-dir ./results --yes
+
+# Bypass transcript cache (re-fetch from YouTube)
+youtubesynth --input videos.txt --no-cache
 ```
 
-Result files are written to `output/{job_id}/`:
+Output files are written to `output/{job_id}/`:
+
 ```
 output/
 └── a3f1c2d4/
-    ├── result.md            # synthesized article
-    └── token_report.json    # token usage and USD cost per agent
+    ├── overall_summary.md    ← synthesized article / tutorial / guide
+    ├── transcripts.md        ← all per-video summaries combined
+    └── token_report.json     ← token usage and USD cost per agent
 ```
 
-### Option C — REST API
+#### CLI flags
 
-```bash
-# Submit a job
-curl -X POST http://localhost:8000/api/jobs \
-  -F "file=@videos.txt" \
-  -F "style=article"
-# → {"job_id":"a3f1c2d4","status":"pending","video_count":12}
-
-# Stream real-time progress
-curl -N http://localhost:8000/api/jobs/a3f1c2d4/stream
-
-# Poll status
-curl http://localhost:8000/api/jobs/a3f1c2d4
-
-# Fetch result when done
-curl http://localhost:8000/api/jobs/a3f1c2d4/result
-
-# Download files
-curl -O http://localhost:8000/api/jobs/a3f1c2d4/download
-curl -O http://localhost:8000/api/jobs/a3f1c2d4/token-report
-```
-
----
-
-## CLI reference
-
-| Argument | Short | Default | Description |
+| Flag | Short | Default | Description |
 |---|---|---|---|
 | `--input PATH` | `-i` | — | XML, JSON, or TXT file with video URLs |
 | `--playlist URL` | `-p` | — | YouTube playlist URL |
-| `--style` | `-s` | `article` | `tutorial` \| `article` \| `guide` |
-| `--title TEXT` | `-t` | auto | Title for synthesized output |
-| `--output-dir PATH` | `-o` | `./output` | Where to write result files |
-| `--max-videos N` | | `50` | Cap number of videos |
-| `--concurrency N` | | `3` | Max concurrent Gemini calls |
-| `--no-cache` | | off | Bypass transcript cache |
-| `--verbose` | `-v` | off | Per-video progress lines |
+| `--style` | `-s` | `article` | `article` \| `tutorial` \| `guide` |
+| `--title TEXT` | `-t` | auto | Title for the synthesized output |
+| `--output-dir PATH` | `-o` | `./output` | Directory to write result files |
+| `--max-videos N` | | `50` | Cap number of videos processed |
+| `--concurrency N` | | `3` | Max concurrent Gemini summarization calls |
+| `--no-cache` | | off | Bypass transcript disk cache |
+| `--yes` | `-y` | off | Skip cost confirmation prompt |
+| `--verbose` | `-v` | off | Print per-video progress lines |
 
 `--input` and `--playlist` are mutually exclusive; exactly one is required.
 
 ---
 
-## Configuration (`.env`)
+### Option C — REST API
+
+Start the backend:
 
 ```bash
-GEMINI_API_KEY=your_key_here          # required
+source .venv/bin/activate
+uvicorn youtubesynth.main:app --reload --port 8000
+```
 
-# Models
-SUMMARIZER_MODEL=gemini-1.5-flash
-SYNTHESIS_MODEL=gemini-1.5-pro
+#### Check if a server key is configured
 
-# Concurrency
-MAX_CONCURRENT_GEMINI_CALLS=3
-YOUTUBE_FETCH_DELAY_SECONDS=1.0
+```bash
+curl http://localhost:8000/api/config
+# {"has_server_key": true}
+```
 
-# Chunking (tokens)
-CHUNK_TOKEN_THRESHOLD=8000
-CHUNK_SIZE_TOKENS=6000
+#### Submit a job
 
-# Guards
-MAX_VIDEOS_PER_JOB=50
+```bash
+# From a file
+curl -X POST http://localhost:8000/api/jobs \
+  -H "X-Gemini-Api-Key: YOUR_KEY" \
+  -F "file=@videos.txt" \
+  -F "style=article" \
+  -F "max_videos=20"
 
-# Storage paths
-CACHE_DIR=.cache/transcripts
-SUMMARIES_DIR=summaries
-OUTPUT_DIR=output
-DB_PATH=.data/youtubesynth.db
+# From a playlist URL
+curl -X POST http://localhost:8000/api/jobs \
+  -H "X-Gemini-Api-Key: YOUR_KEY" \
+  -F "playlist_url=https://www.youtube.com/playlist?list=PLxxx" \
+  -F "style=tutorial" \
+  -F "title=My Tutorial"
 
-LOG_LEVEL=INFO
+# → {"job_id":"a3f1c2d4","status":"fetching","video_count":12}
+```
+
+The `X-Gemini-Api-Key` header is optional if `GEMINI_API_KEY` is set in `.env`.
+
+#### Stream real-time progress (SSE)
+
+```bash
+curl -N http://localhost:8000/api/jobs/a3f1c2d4/stream
+```
+
+Events emitted:
+
+| Event | When |
+|---|---|
+| `confirmation_required` | Transcripts fetched; cost estimate ready |
+| `job_started` | User confirmed; summarization begins |
+| `video_started` | A video is being summarized |
+| `video_done` | A video summary is complete |
+| `video_failed` | A video had no transcript |
+| `synthesis_start` | All summaries done; synthesis begins |
+| `job_done` | Pipeline complete |
+| `job_cancelled` | User cancelled at cost confirmation |
+| `job_failed` | Unrecoverable error |
+
+#### Confirm or cancel after cost estimate
+
+```bash
+# Poll status until pending_confirmation
+curl http://localhost:8000/api/jobs/a3f1c2d4
+# {"job_id":"a3f1c2d4","status":"pending_confirmation", ...}
+
+# Confirm — unblocks the pipeline
+curl -X POST http://localhost:8000/api/jobs/a3f1c2d4/confirm
+
+# Cancel — aborts cleanly (no Gemini calls made)
+curl -X POST http://localhost:8000/api/jobs/a3f1c2d4/cancel
+```
+
+#### Poll status
+
+```bash
+curl http://localhost:8000/api/jobs/a3f1c2d4
+# {"job_id":"a3f1c2d4","status":"running","total_videos":12,"done_videos":5, ...}
+```
+
+#### Get result (after job is done)
+
+```bash
+curl http://localhost:8000/api/jobs/a3f1c2d4/result
+# {"job_id":"a3f1c2d4","status":"done","output":"# My Article\n...","token_report":{...}}
+```
+
+#### Download files
+
+```bash
+# Download overall_summary.md
+curl -O http://localhost:8000/api/jobs/a3f1c2d4/download
+
+# Download transcripts.md
+curl -O http://localhost:8000/api/jobs/a3f1c2d4/transcripts
+
+# Download token_report.json
+curl -O http://localhost:8000/api/jobs/a3f1c2d4/token-report
+```
+
+#### Full endpoint reference
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/config` | Returns `{"has_server_key": bool}` |
+| `POST` | `/api/jobs` | Submit a job (multipart: `file` or `playlist_url`) |
+| `GET` | `/api/jobs/{id}/stream` | SSE event stream |
+| `GET` | `/api/jobs/{id}` | Poll job status |
+| `POST` | `/api/jobs/{id}/confirm` | Confirm cost and start summarization |
+| `POST` | `/api/jobs/{id}/cancel` | Cancel at confirmation stage |
+| `GET` | `/api/jobs/{id}/result` | Get synthesized output + token report (JSON) |
+| `GET` | `/api/jobs/{id}/download` | Download `overall_summary.md` |
+| `GET` | `/api/jobs/{id}/transcripts` | Download `transcripts.md` |
+| `GET` | `/api/jobs/{id}/token-report` | Download `token_report.json` |
+| `GET` | `/health` | Health check |
+
+---
+
+## Output files
+
+```
+output/{job_id}/
+├── overall_summary.md       ← synthesized article, tutorial, or guide
+├── transcripts.md           ← all per-video summaries combined (with title + URL headers)
+├── token_report.json        ← cost breakdown by agent
+└── summaries/
+    └── {job_id}/
+        └── {video_id}.md    ← intermediate per-video summary files
+```
+
+Example `token_report.json`:
+
+```json
+{
+  "job_id": "a3f1c2d4",
+  "total_input_tokens": 85000,
+  "total_output_tokens": 12000,
+  "total_cost_usd": 0.0106,
+  "by_agent": {
+    "summarizer":       { "input_tokens": 70000, "output_tokens": 9000, "cost_usd": 0.0017 },
+    "synthesis":        { "input_tokens": 12000, "output_tokens": 3000, "cost_usd": 0.0065 },
+    "chunk_summarizer": { "input_tokens":  3000, "output_tokens":  200, "cost_usd": 0.0003 }
+  }
+}
 ```
 
 ---
 
 ## Testing
 
-### Backend unit tests
+### Backend tests
 
 ```bash
-# All unit tests (no network, no API key needed — all mocked)
+source .venv/bin/activate
+
+# All 143 tests (unit + integration)
+pytest tests/ -v
+
+# Unit tests only (no network, no API key — all mocked)
 pytest tests/unit/ -v
 
-# By phase
-pytest tests/unit/test_url_validator.py tests/unit/test_extractors.py -v   # Phase 2
-pytest tests/unit/test_db.py -v                                             # Phase 3
-pytest tests/unit/test_youtube_service.py -v                                # Phase 4
-pytest tests/unit/test_gemini_client.py tests/unit/test_token_tracker.py -v # Phase 5
-pytest tests/unit/test_transcript_summarizer.py -v                          # Phase 6
-pytest tests/unit/test_synthesis_agent.py -v                                # Phase 7
-pytest tests/unit/test_cli.py -v                                            # Phase 8
-pytest tests/unit/test_api.py -v                                            # Phase 9
-```
-
-### Backend integration tests
-
-```bash
-# Full pipeline — mocked YouTube + Gemini, real filesystem + SQLite
+# Integration tests (mocked YouTube + Gemini, real SQLite)
 pytest tests/integration/ -v
-```
 
-### Full test suite with coverage
-
-```bash
+# With coverage report
 pytest tests/ --cov=youtubesynth --cov-report=term-missing
-# Target: > 80% coverage
 ```
 
----
-
-## Testing the Frontend
-
-### Prerequisites
-
-```bash
-# Backend must be running
-uvicorn youtubesynth.main:app --reload --port 8000
-
-# Install frontend dependencies (first time only)
-cd frontend && npm install
-```
-
-### Development server
+### Frontend build check
 
 ```bash
 cd frontend
-npm run dev
-# Vite dev server starts at http://localhost:3000
-# All /api requests are proxied to http://localhost:8000
+npm run build    # must complete without errors
+npm run lint     # ESLint
 ```
 
-### Manual test checklist
+### Manual UI test checklist
 
 #### Sidebar — API key
-- [ ] Enter a key → the green "API key saved" indicator appears
-- [ ] Refresh the page → key is still present (persisted in `localStorage`)
-- [ ] Click the eye icon → key toggles between masked and visible
-- [ ] Clear the key → green indicator disappears
 
-#### UploadForm — file input
-- [ ] Click "Choose file" → native file picker opens, accepts `.xml`, `.json`, `.txt`
-- [ ] Select a file → filename replaces "No file chosen"
-- [ ] Drag and drop a file onto the zone → filename updates
-- [ ] Click the `✕` next to the filename → clears the selection
-- [ ] After selecting a file, type in the playlist URL field → file clears (inputs are mutually exclusive)
-- [ ] Click "GetTranscript and Summary" without any input → button stays disabled
+- [ ] If `GEMINI_API_KEY` is in `.env`: field shows `•••••••••••••  from .env` and status shows "Server key active"
+- [ ] If no server key: input is editable; entering a key shows "API key saved"
+- [ ] Entered key persists across page refreshes (stored in `localStorage`)
+- [ ] Eye icon toggles key visibility
+- [ ] Entering a key in the UI overrides the server key for that session
 
-#### UploadForm — playlist URL
-- [ ] Type a playlist URL → file chooser clears
-- [ ] Clear the URL → submit button disables again
+#### Upload form
 
-#### UploadForm — options
-- [ ] Change "Output style" dropdown → persists until submission
-- [ ] Change "Max videos" → accepts 1–200
-- [ ] Enter a custom title → optional, can be left blank
+- [ ] "Choose file" opens native picker, accepts `.xml`, `.json`, `.txt`
+- [ ] Drag and drop a file onto the zone updates the filename
+- [ ] `✕` clears the file selection
+- [ ] Entering a playlist URL clears the file (inputs are mutually exclusive)
+- [ ] Submit button is disabled until a file or URL is provided
+- [ ] Style selector: `article` / `tutorial` / `guide`
+- [ ] Max videos: 1–200
+- [ ] Optional title field
 
-#### UploadForm — submission
-- [ ] Click "GetTranscript and Summary" → spinner appears in button, view switches to ProgressPanel
-- [ ] Submit with an invalid/unreachable API key → error message shown in red below the form
-- [ ] Submit with backend not running → network error shown
+#### Cost confirmation modal
 
-#### ProgressPanel — real-time progress
-- [ ] "Connecting to job stream…" spinner appears immediately
-- [ ] After `job_started` SSE event: list of pending video rows appears with correct total count
-- [ ] After each `video_started` event: the corresponding row shows a spinner and the video title
-- [ ] After each `video_done` event: row shows a green ✓, transcript type, and token count
-- [ ] After each `video_failed` event: row shows a red ✕ and the error message (e.g., "No transcript available")
+- [ ] Modal appears after transcripts are fetched (before any Gemini calls)
+- [ ] Shows correct available / unavailable video counts
+- [ ] Summarizer row shows Flash model name, token estimate, and cost
+- [ ] Synthesis row shows Pro model name, token estimate, and cost
+- [ ] Total cost is the sum of both rows
+- [ ] **Cancel** → modal closes, panel shows "Job cancelled. No API calls were made."
+- [ ] **Proceed** → modal closes, per-video progress begins
+
+#### Progress panel
+
+- [ ] "Fetching transcripts…" spinner shown while transcripts are being fetched
+- [ ] After confirming: video rows appear with correct total count
+- [ ] Each row shows index, title, and a spinner while summarizing
+- [ ] Completed rows show green ✓, transcript type, and token count
+- [ ] Failed rows show red ✗ and error message
 - [ ] Progress bar advances as videos complete
-- [ ] Failed video count shown in red below the bar
-- [ ] After all videos: "Synthesizing N summaries" panel appears with an indigo spinner
-- [ ] Log area auto-scrolls as new rows arrive
+- [ ] "Synthesizing N summaries" indigo panel appears after all videos done
+- [ ] Log area auto-scrolls
 
-#### ResultView — rendered output
-- [ ] View switches automatically after `job_done` SSE event
-- [ ] Synthesized markdown is rendered with correct headings, bullets, and code blocks
+#### Result view
+
 - [ ] Stats bar shows: total cost, input tokens, output tokens, summarizer cost, synthesis cost
-- [ ] **Copy** button copies raw markdown to clipboard; button text briefly changes to "Copied!"
-- [ ] **Download** button downloads `result.md` to local machine
-- [ ] **New job** button resets to the UploadForm (entering API key is not required again)
-
-### Build for production
-
-```bash
-cd frontend
-npm run build
-# Output written to youtubesynth/static/
-# FastAPI serves it at http://localhost:8000/
-```
-
-Verify the production build is served:
-
-```bash
-uvicorn youtubesynth.main:app --port 8000
-curl -s http://localhost:8000/ | grep -o '<title>.*</title>'
-# Expected: <title>YouTubeSynth</title>
-```
-
-### Lint
-
-```bash
-cd frontend
-npm run lint
-```
+- [ ] `overall_summary.md` download card is present and downloads the file
+- [ ] `transcripts.md` download card is present and downloads the file
+- [ ] "New job" button resets to the upload form
 
 ---
 
@@ -419,24 +460,25 @@ youtube-bookmarks-summariser/
 ├── youtubesynth/
 │   ├── config.py                      # Pydantic settings — reads .env
 │   ├── exceptions.py                  # Custom exception hierarchy
-│   ├── pipeline.py                    # Composition root (CLI + API share this)
+│   ├── pipeline.py                    # Two-phase composition root (CLI + API share this)
 │   ├── cli.py                         # youtubesynth console script
-│   ├── main.py                        # FastAPI app + lifespan + static files
+│   ├── main.py                        # FastAPI app + lifespan + static file serving
 │   ├── extractors/
 │   │   ├── url_validator.py           # VideoMeta, extract_video_id()
 │   │   ├── xml_extractor.py
 │   │   ├── json_extractor.py
-│   │   ├── txt_extractor.py
+│   │   ├── txt_extractor.py           # Reads prev line as title hint
 │   │   └── playlist_extractor.py      # yt-dlp
 │   ├── agents/
 │   │   ├── base_agent.py
-│   │   ├── transcript_summarizer.py   # Agent 1 — Gemini Flash
+│   │   ├── prompts.py                 # All Gemini prompt templates
+│   │   ├── transcript_summarizer.py   # Agent 1 — Gemini Flash, chunking
 │   │   └── synthesis_agent.py         # Agent 2 — Gemini Pro
 │   ├── services/
 │   │   ├── db.py                      # Async SQLite (aiosqlite)
 │   │   ├── youtube_service.py         # Transcript fetch + disk cache
-│   │   ├── gemini_client.py           # API wrapper, exponential backoff
-│   │   └── token_tracker.py           # Cost ledger
+│   │   ├── gemini_client.py           # Async wrapper, exponential backoff
+│   │   └── token_tracker.py           # Cost estimation and ledger
 │   ├── api/
 │   │   ├── routes.py                  # All FastAPI endpoints
 │   │   ├── sse.py                     # Per-job asyncio.Queue SSE manager
@@ -450,20 +492,18 @@ youtube-bookmarks-summariser/
 │   └── src/
 │       ├── App.jsx                    # State machine: form → progress → result
 │       └── components/
-│           ├── Sidebar.jsx            # API key input (localStorage)
-│           ├── UploadForm.jsx         # File / playlist URL submission
-│           ├── ProgressPanel.jsx      # SSE consumer, per-video log
-│           └── ResultView.jsx         # Markdown render, copy, download
+│           ├── Sidebar.jsx            # API key input; detects server key via /api/config
+│           ├── UploadForm.jsx         # File / playlist URL, style, max-videos
+│           ├── CostConfirmModal.jsx   # Cost breakdown table; Proceed / Cancel
+│           ├── ProgressPanel.jsx      # SSE consumer, per-video log, modal trigger
+│           └── ResultView.jsx         # Token stats + download cards
 ├── tests/
-│   ├── unit/                          # Phase-by-phase unit tests (all mocked)
-│   ├── integration/                   # End-to-end pipeline tests (mocked I/O)
+│   ├── unit/                          # Per-phase unit tests (all mocked)
+│   ├── integration/                   # End-to-end pipeline tests
 │   └── fixtures/
 │       ├── sample_videos.{xml,json,txt}
-│       └── mock_transcripts/
-├── .cache/transcripts/                # Persistent transcript cache (gitignored)
-├── summaries/                         # Intermediate per-video summaries (gitignored)
-├── output/                            # Final results (gitignored)
-├── .data/youtubesynth.db              # SQLite job state (gitignored)
+│       ├── mock_transcripts/
+│       └── mock_summaries/
 ├── .env.example
 ├── pyproject.toml
 ├── System-Design-v1.md
@@ -472,49 +512,18 @@ youtube-bookmarks-summariser/
 
 ---
 
-## Output files
-
-After a successful run:
-
-```
-output/{job_id}/
-├── result.md              # Synthesized article — ready to publish
-└── token_report.json      # Cost breakdown by agent and video
-```
-
-```json
-{
-  "job_id": "a3f1c2d4",
-  "total_input_tokens": 85000,
-  "total_output_tokens": 12000,
-  "total_cost_usd": 0.0412,
-  "by_agent": {
-    "summarizer":       { "input_tokens": 70000, "output_tokens": 9000,  "cost_usd": 0.0327 },
-    "synthesis":        { "input_tokens": 12000, "output_tokens": 3000,  "cost_usd": 0.0073 },
-    "chunk_summarizer": { "input_tokens":  3000, "output_tokens":  200,  "cost_usd": 0.0012 }
-  },
-  "by_video": [
-    { "video_id": "abc123", "title": "...", "input_tokens": 4200, "output_tokens": 600, "cost_usd": 0.0005, "transcript_type": "manual" }
-  ]
-}
-```
-
----
-
 ## Implementation phases
 
-See [implementation-plan.md](implementation-plan.md) for the full phased build plan with per-phase test commands.
-
-| Phase | What gets built |
+| Phase | What was built |
 |---|---|
 | 1 | Scaffolding, `pyproject.toml`, editable install |
 | 2 | URL extractors (XML / JSON / TXT / playlist) |
 | 3 | Async SQLite database layer |
 | 4 | YouTube transcript service + disk cache |
-| 5 | Gemini client (retry/backoff) + token tracker |
+| 5 | Gemini client (retry/backoff) + token tracker + cost estimation |
 | 6 | Agent 1 — Transcript Summarizer (chunking, concurrency) |
 | 7 | Agent 2 — Synthesis Agent |
-| 8 | CLI entry point + shared pipeline |
-| 9 | FastAPI REST API + SSE streaming |
-| 10 | Integration tests |
-| 11 | React web frontend |
+| 8 | CLI entry point + two-phase pipeline |
+| 9 | FastAPI REST API + SSE streaming + cost confirmation endpoints |
+| 10 | Integration tests (full pipeline + API layer) |
+| 11 | React web frontend (Vite + Tailwind + cost confirm modal) |

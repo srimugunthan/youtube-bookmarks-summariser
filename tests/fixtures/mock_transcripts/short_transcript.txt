@@ -1,0 +1,55 @@
+# transcript_type: manual
+# language: en
+[00:00] Welcome to this introduction to machine learning. Today we are going to cover the fundamental
+[00:05] concepts that every practitioner needs to understand before diving into more advanced topics.
+[00:10] Machine learning is a subset of artificial intelligence that enables computers to learn from
+[00:15] data without being explicitly programmed. Instead of writing rules by hand, we train models
+[00:20] on examples and let them discover patterns automatically.
+[00:25] There are three main types of machine learning. The first is supervised learning, where we
+[00:30] train on labeled data. Each training example has an input and a corresponding correct output.
+[00:35] The model learns to map inputs to outputs by minimizing a loss function. Common supervised
+[00:40] tasks include classification, where we predict a category, and regression, where we predict
+[00:45] a continuous value.
+[00:50] The second type is unsupervised learning. Here we have data without labels and we want to
+[00:55] discover hidden structure. Clustering algorithms like k-means group similar data points
+[01:00] together. Dimensionality reduction techniques like PCA compress data into fewer dimensions
+[01:05] while preserving important information.
+[01:10] The third type is reinforcement learning. An agent interacts with an environment and learns
+[01:15] by receiving rewards or penalties based on its actions. This approach has produced remarkable
+[01:20] results in game playing and robotics.
+[01:25] Let us talk about the machine learning workflow. First, you collect and clean your data. Data
+[01:30] quality is crucial because garbage in means garbage out. You need to handle missing values,
+[01:35] remove duplicates, and normalize your features.
+[01:40] Next, you split your data into training, validation, and test sets. The training set is used
+[01:45] to fit the model. The validation set helps you tune hyperparameters and detect overfitting.
+[01:50] The test set gives you an unbiased estimate of performance on unseen data.
+[01:55] Feature engineering is the process of transforming raw data into useful inputs for your model.
+[02:00] Good features can make a simple model perform very well. Domain knowledge is extremely valuable
+[02:05] here. You might create interaction terms, apply log transforms to skewed distributions, or
+[02:10] encode categorical variables as one-hot vectors.
+[02:15] Now we come to model selection. Different algorithms have different strengths. Linear regression
+[02:20] is interpretable and fast but assumes linear relationships. Decision trees are easy to visualize
+[02:25] and handle non-linear patterns but can overfit. Random forests combine many trees and are robust
+[02:30] to overfitting. Gradient boosting methods like XGBoost often win competitions. Neural networks
+[02:35] are extremely flexible but require large amounts of data and compute.
+[02:40] Regularization techniques prevent overfitting. L1 regularization adds the absolute value of
+[02:45] weights to the loss, which can drive some weights to zero and produce sparse models. L2
+[02:50] regularization adds the squared weights, which shrinks all weights smoothly. Dropout is a
+[02:55] technique specific to neural networks that randomly deactivates neurons during training.
+[03:00] Evaluation metrics depend on your task. For classification, accuracy measures the fraction
+[03:05] of correct predictions. But accuracy is misleading on imbalanced datasets. Precision and
+[03:10] recall are more informative. The F1 score is the harmonic mean of precision and recall.
+[03:15] For regression tasks, mean squared error and mean absolute error are common choices.
+[03:20] Cross-validation is a technique to get a more reliable estimate of model performance. Instead
+[03:25] of a single train-validation split, you perform k splits and train k models, each time using
+[03:30] a different fold as the validation set. The final performance is the average across all folds.
+[03:35] Hyperparameter tuning is the process of finding the best configuration for your model. Grid
+[03:40] search tries every combination in a predefined grid. Random search samples randomly and is
+[03:45] often more efficient. Bayesian optimization builds a probabilistic model to guide the search.
+[03:50] Once your model is trained and evaluated, you need to deploy it. Model serving can be done
+[03:55] via REST APIs, batch pipelines, or embedded systems. You should monitor your model in
+[04:00] production because data distributions can shift over time, causing performance to degrade.
+[04:05] This is called concept drift and it requires retraining or updating your model periodically.
+[04:10] That covers the core concepts of machine learning. In the next video we will dive deeper into
+[04:15] neural networks and explore how deep learning has transformed the field. Thank you for watching
+[04:20] and please subscribe for more content on artificial intelligence and data science.

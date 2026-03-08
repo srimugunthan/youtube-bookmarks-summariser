@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import CostConfirmModal from './CostConfirmModal'
 
 function CheckIcon() {
   return (
@@ -22,20 +23,6 @@ function SpinnerIcon({ className = 'w-4 h-4' }) {
   )
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    pending:     'bg-gray-100 text-gray-500',
-    running:     'bg-indigo-50 text-indigo-600',
-    done:        'bg-emerald-50 text-emerald-700',
-    failed:      'bg-red-50 text-red-600',
-  }
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[status] ?? map.pending}`}>
-      {status}
-    </span>
-  )
-}
-
 function VideoRow({ index, total, title, status, transcriptType, tokens, error }) {
   const padded = String(index).padStart(String(total).length, ' ')
 
@@ -45,10 +32,10 @@ function VideoRow({ index, total, title, status, transcriptType, tokens, error }
         [{padded}/{total}]
       </span>
 
-      {status === 'done'  && <CheckIcon />}
-      {status === 'failed' && <XIcon />}
+      {status === 'done'        && <CheckIcon />}
+      {status === 'failed'      && <XIcon />}
       {status === 'summarizing' && <SpinnerIcon />}
-      {status === 'pending' && <span className="w-4 h-4 flex-shrink-0" />}
+      {status === 'pending'     && <span className="w-4 h-4 flex-shrink-0" />}
 
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gray-700 truncate font-medium">{title || `Video ${index}`}</p>
@@ -64,12 +51,14 @@ function VideoRow({ index, total, title, status, transcriptType, tokens, error }
   )
 }
 
+// phase: 'fetching' | 'confirming' | 'summarizing' | 'synthesizing' | 'done' | 'failed' | 'cancelled'
 export default function ProgressPanel({ jobId, onJobComplete }) {
-  const [phase, setPhase] = useState('summarizing')   // 'summarizing' | 'synthesizing' | 'done' | 'failed'
+  const [phase, setPhase] = useState('fetching')
   const [totalVideos, setTotalVideos] = useState(0)
-  const [videos, setVideos] = useState([])             // { index, title, status, transcriptType, tokens, error }
+  const [videos, setVideos] = useState([])
   const [summaryCount, setSummaryCount] = useState(0)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [estimate, setEstimate] = useState(null)
   const logRef = useRef(null)
 
   // Auto-scroll log area
@@ -84,7 +73,13 @@ export default function ProgressPanel({ jobId, onJobComplete }) {
 
     const onEvent = (type, handler) => es.addEventListener(type, (e) => handler(JSON.parse(e.data)))
 
+    onEvent('confirmation_required', (data) => {
+      setEstimate(data.estimate)
+      setPhase('confirming')
+    })
+
     onEvent('job_started', (data) => {
+      setPhase('summarizing')
       setTotalVideos(data.total_videos)
       setVideos(Array.from({ length: data.total_videos }, (_, i) => ({
         index: i + 1,
@@ -106,7 +101,6 @@ export default function ProgressPanel({ jobId, onJobComplete }) {
 
     onEvent('video_done', (data) => {
       setVideos((prev) => prev.map((v) =>
-        // match by title or by finding the first summarizing video for that video_id
         v.status === 'summarizing' && (!data.title || v.title === data.title)
           ? { ...v, status: 'done', transcriptType: data.transcript_type, tokens: data.tokens_used }
           : v
@@ -138,6 +132,11 @@ export default function ProgressPanel({ jobId, onJobComplete }) {
       }
     })
 
+    onEvent('job_cancelled', () => {
+      setPhase('cancelled')
+      es.close()
+    })
+
     onEvent('job_failed', (data) => {
       setPhase('failed')
       setErrorMsg(data.error || 'An unknown error occurred.')
@@ -145,29 +144,64 @@ export default function ProgressPanel({ jobId, onJobComplete }) {
     })
 
     es.onerror = () => {
-      setPhase('failed')
-      setErrorMsg('Lost connection to the server.')
+      // Only treat as failure if we haven't already reached a terminal state
+      setPhase((prev) => {
+        if (prev === 'done' || prev === 'cancelled' || prev === 'failed') return prev
+        setErrorMsg('Lost connection to the server.')
+        return 'failed'
+      })
       es.close()
     }
 
     return () => es.close()
   }, [jobId, onJobComplete])
 
+  const handleModalDone = (confirmed) => {
+    // Close modal; phase will update via SSE (job_started or job_cancelled)
+    if (!confirmed) {
+      setPhase('cancelled')
+    } else {
+      setPhase('summarizing')
+    }
+    setEstimate(null)
+  }
+
   const doneCount = videos.filter((v) => v.status === 'done').length
   const failedCount = videos.filter((v) => v.status === 'failed').length
   const progress = totalVideos > 0 ? (doneCount + failedCount) / totalVideos : 0
 
+  const headerText = {
+    fetching:     'Fetching transcripts…',
+    confirming:   'Waiting for confirmation…',
+    summarizing:  'Processing videos…',
+    synthesizing: 'Synthesizing…',
+    done:         'Done — loading result…',
+    failed:       'Job failed',
+    cancelled:    'Job cancelled',
+  }[phase] ?? 'Processing…'
+
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto px-6 py-10 gap-6">
+      {/* Cost confirm modal — rendered on top */}
+      {phase === 'confirming' && estimate && (
+        <CostConfirmModal jobId={jobId} estimate={estimate} onDone={handleModalDone} />
+      )}
+
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-gray-800">
-          {phase === 'synthesizing' ? 'Synthesizing…' : phase === 'done' ? 'Done — loading result…' : phase === 'failed' ? 'Job failed' : 'Processing videos…'}
-        </h2>
+        <h2 className="text-xl font-bold text-gray-800">{headerText}</h2>
         <p className="text-sm text-gray-500 mt-1">
           Job ID: <span className="font-mono text-gray-600">{jobId}</span>
         </p>
       </div>
+
+      {/* Fetching spinner */}
+      {phase === 'fetching' && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-gray-100">
+          <SpinnerIcon className="w-5 h-5" />
+          <p className="text-sm text-gray-600">Fetching YouTube transcripts…</p>
+        </div>
+      )}
 
       {/* Progress bar */}
       {totalVideos > 0 && phase === 'summarizing' && (
@@ -201,6 +235,13 @@ export default function ProgressPanel({ jobId, onJobComplete }) {
         </div>
       )}
 
+      {/* Cancelled state */}
+      {phase === 'cancelled' && (
+        <div className="px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">
+          Job cancelled. No API calls were made.
+        </div>
+      )}
+
       {/* Error state */}
       {phase === 'failed' && errorMsg && (
         <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
@@ -223,7 +264,7 @@ export default function ProgressPanel({ jobId, onJobComplete }) {
       )}
 
       {/* Empty state — waiting for first event */}
-      {videos.length === 0 && phase !== 'failed' && (
+      {videos.length === 0 && phase !== 'failed' && phase !== 'cancelled' && phase !== 'fetching' && (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-gray-400">
             <SpinnerIcon className="w-8 h-8" />

@@ -1,0 +1,9 @@
+{
+  "videos": [
+    {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "Rick Astley - Never Gonna Give You Up"},
+    {"url": "https://youtu.be/9bZkp7q19f0", "title": "PSY - GANGNAM STYLE"},
+    {"url": "https://www.youtube.com/embed/M7lc1UVf-VE", "title": "OK Go - Here It Goes Again"},
+    {"url": "https://www.youtube.com/shorts/jNQXAC9IVRw", "title": "Me at the zoo"},
+    {"url": "https://www.youtube.com/watch?v=kJQP7kiw5Fk", "title": "Luis Fonsi - Despacito"}
+  ]
+}
