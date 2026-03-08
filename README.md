@@ -5,6 +5,14 @@ Transform collections of YouTube videos into structured knowledge articles using
 Accepts a YouTube playlist URL or a bookmarks file (XML, JSON, TXT), fetches transcripts, summarizes each video with **Gemini Flash**, then synthesizes all summaries into a cohesive article or tutorial with **Gemini Pro**. Available as a **CLI tool**, a **REST API**, and a **React web UI**.
 
 ---
+# Demo
+
+
+https://github.com/user-attachments/assets/5ec8d6ca-204f-4d9a-8388-32f19ed5ff22
+
+
+---
+
 
 ## Architecture
 
